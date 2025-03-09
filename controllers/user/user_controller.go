@@ -1,0 +1,428 @@
+package user_controller
+
+import (
+	// sqldb "database/sql"
+	"fmt"
+	"time"
+
+	// "gorm.io/driver/sqlserver"
+	"log"
+	// "maxion-zone4/config"
+	"maxion-zone4/models"
+	"maxion-zone4/models/database"
+	"maxion-zone4/models/message"
+	"maxion-zone4/services"
+	"maxion-zone4/services/databases"
+	sql "maxion-zone4/services/databases"
+	"strconv"
+	"strings"
+)
+
+// SplitString is a function that splits a string by a given delimiter.
+func SplitString(input string, delimiter string) []string {
+	return strings.Split(input, delimiter)
+}
+
+// func LoginUser(Body string, character *models.CharacterInfo) {
+// 	log.Print("Login User: ", Body)
+
+// 	services.SendTCP(message.USER_MESSAGE_15200, "Login Success TCP From Go naja", character.Name)
+// }
+
+func checkMemberInfoInDatabase(account, password string) bool {
+	var exists bool
+	err := services.GameDB.Raw(`SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.member_info WHERE memb___id = ? AND password = ?) THEN 1 ELSE 0 END`, account, password).Scan(&exists).Error
+	if err != nil {
+		log.Print("Error in GetCharacterStamina: ", err)
+	}
+	return exists
+}
+
+func LoginUser(Body string, username string) {
+	log.Print("Login User: ", Body)
+
+	parts := strings.Split(Body, ",")
+
+	// ตรวจสอบผลลัพธ์
+	if len(parts) == 2 {
+		username := parts[0]
+		password := parts[1]
+		fmt.Println("Username:", username)
+		fmt.Println("Password:", password)
+
+		if checkMemberInfoInDatabase(username, password) {
+			services.SendTCPUser(message.USER_MESSAGE_RESPONSE_LOGIN, "Login Success TCP From Go naja", username)
+		} else {
+			services.SendTCPUser(message.USER_MESSAGE_SEND_CLIENT_ERROR, "User not found or invalid password", username)
+			log.Println("User not found or invalid password")
+		}
+
+	} else {
+		fmt.Println("Invalid input format :")
+	}
+}
+
+func LoginUserUDP(Body string) {
+	log.Print("Login User: ", Body)
+
+	services.SendUDP(message.USER_MESSAGE_900, "Login Success UDP KRUB")
+}
+
+// Sending Data to TCP
+func GetMsRankTCP(Body string, character *models.CharacterInfo) {
+	//Logic for find new rank is here (Body string --> PlayerRankStar(int))
+	RankStar, err := strconv.Atoi(Body)
+	if err != nil {
+		log.Print("Error converting string to int:", err)
+		return
+	}
+	log.Print("Test RankID value from Client: ", RankStar)
+	Data, err := sql.GetMsRank(RankStar)
+	if err != nil {
+		return
+	}
+	services.SendTCP(message.USER_MESSAGE_GET_MS_RANKING_RECEIVE, Data.ToString(), character.Name)
+	log.Print("Final result that sending to client: ", Data.ToString())
+}
+
+// ReduceMsRankStarTCP processes the input and sends data via TCP.
+func ModifyRankStarMsRankStarTCP(Body string, character *models.CharacterInfo) {
+	// Use SplitString to split the input Body into components
+	parts := SplitString(Body, ",")
+	if len(parts) != 2 {
+		log.Print("Invalid input format. Expected 'character_key,rank_star'")
+		return
+	}
+
+	// Parse the character_key
+	character_key, err := strconv.Atoi(parts[0])
+	if err != nil {
+		log.Print("Error converting character_key to int:", err)
+		return
+	}
+
+	// Parse the rank_star
+	ModifierStat, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Print("Error converting rank_star to int:", err)
+		return
+	}
+
+	// Log values from the client
+	log.Print("Test RankID value from Client: ", character_key)
+	log.Print("Rank Star value from Client: ", ModifierStat)
+
+	// Logic for reducing rank (assuming sql.ReduceRankStar supports rank_star as input)
+	Data, err := sql.ModifyRankStar(character_key, ModifierStat)
+	if err != nil {
+		log.Print("Error in ReduceRankStar:", err)
+		return
+	}
+
+	// Send the result to the client via TCP
+	services.SendTCP(message.USER_MESSAGE_MODIFY_RANK_POINT_RECEIVE, Data.ToString(), character.Name)
+	log.Print("Final result that sending to client: ", Data.ToString())
+}
+
+// ReduceMsRankStarTCP processes the input and sends data via TCP.
+func AddProtectionPointMsTCP(Body string, character *models.CharacterInfo) {
+	// Use SplitString to split the input Body into components
+	parts := SplitString(Body, ",")
+	if len(parts) != 2 {
+		log.Print("Invalid input format. Expected 'character_key,IsMVP'")
+		return
+	}
+
+	// Parse the character_key
+	character_key, err := strconv.Atoi(parts[0])
+	if err != nil {
+		log.Print("Error converting character_key to int:", err)
+		return
+	}
+
+	// Parse the rank_star
+	IsMVP, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Print("Error converting rank_star to int:", err)
+		return
+	}
+
+	// Log values from the client
+	log.Print("Test CharacterID value from Client in Protection Point system: ", character_key)
+	log.Print("IsMVP value from Client: ", IsMVP)
+
+	// Logic for reducing rank (assuming sql.ReduceRankStar supports rank_star as input)
+	Data, err := sql.AddProtectionPoint(character_key, IsMVP)
+	if err != nil {
+		log.Print("Error in ReduceRankStar:", err)
+		return
+	}
+
+	// Send the result to the client via TCP
+	services.SendTCP(message.USER_MESSAGE_UPDATE_PROTECTION_POINT_RECEIVE, Data.ToString(), character.Name)
+	log.Print("Final result that sending to client: ", Data.ToString())
+}
+
+// ModifyBehaviorTCP processes the input and sends data via TCP.
+func ModifyBehaviorTCP(Body string, character *models.CharacterInfo) {
+	// Use SplitString to split the input Body into components
+	parts := SplitString(Body, ",")
+	if len(parts) != 2 {
+		log.Print("Invalid input format. Expected 'character_key, ModifierStat'")
+		return
+	}
+
+	// Parse the character_key
+	character_key, err := strconv.Atoi(parts[0])
+	if err != nil {
+		log.Print("Error converting character_key to int:", err)
+		return
+	}
+
+	// Parse the rank_star
+	ModifierStat, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Print("Error converting rank_star to int:", err)
+		return
+	}
+
+	// Log values from the client
+	log.Print("Test character_key value from Client: ", character_key)
+	log.Print("ModifierStat value from Client: ", ModifierStat)
+
+	Data, err := databases.ModifyBehaviorScore(character_key, ModifierStat)
+	if err != nil {
+		log.Print("Error in ModifyBehaviorTCP:", err)
+		return
+	}
+
+	// Send the result to the client via TCP
+	services.SendTCP(message.USER_MESSAGE_UPDATE_BEHAVIOR_POINT_RECEIVE, Data.ToString(), character.Name)
+	log.Print("Final result that sending to client: ", Data.ToString())
+}
+
+// Sending Data to TCP
+// func GET_TS_CHARACTER(Body string) {
+// 	// Logic for finding new rank is here (Body string --> PlayerRankStar(int))
+// 	Character_ID, err := strconv.Atoi(Body)
+// 	if err != nil {
+// 		log.Print("Error converting string to int:", err)
+// 		return
+// 	}
+// 	log.Print("Test Character_ID value from Client: ", Character_ID)
+
+// 	// Retrieve data as a slice of database.Season
+// 	Data, err := sql.GetTsCharacter(Character_ID)
+// 	if err != nil {
+// 		log.Print("Error retrieving data from database:", err)
+// 		return
+// 	}
+
+// 	// Convert the slice to a JSON-like string representation
+// 	var result []string
+// 	for _, season := range Data {
+// 		result = append(result, "{"+season.ToString()+"}") // Add curly braces around each entry
+// 	}
+// 	finalResult := "[" + strings.Join(result, ",") + "]" // Join with commas and wrap in square brackets
+
+// 	//Calculated Section
+// 	//1. Match Count
+
+// 	// Send the result via TCP
+// 	services.SendTCP(message.USER_MESSAGE_GET_TS_CHARACTER_RECEIVE, finalResult)
+// 	log.Print("Final result sent to client: ", finalResult)
+// }
+
+func GET_TS_CHARACTER(Body string, character *models.CharacterInfo) {
+	// Convert Body string to Character_ID
+	Character_ID, err := strconv.Atoi(Body)
+	if err != nil {
+		log.Print("Error converting string to int:", err)
+		return
+	}
+	log.Print("Test Character_ID value from Client: ", Character_ID)
+
+	// Retrieve data as a slice of database.Season
+	Data, err := sql.GetTsCharacter(Character_ID)
+	if err != nil {
+		log.Print("Error retrieving data from database:", err)
+		return
+	}
+
+	// Initialize variables for stats analysis
+	totalMatches := len(Data)
+	totalWins := 0
+	totalLosses := 0
+	totalDraws := 0
+	totalKills := 0
+	totalDeaths := 0
+	totalKO := 0
+	totalMVPs := 0
+	totalDamage := 0
+
+	// Analyze the data
+	for _, match := range Data {
+		// Count match results
+		switch match.Match_result {
+		case "W":
+			totalWins++
+		case "L":
+			totalLosses++
+		case "D":
+			totalDraws++
+		}
+
+		// Sum kills, deaths, and KO
+		totalKills += match.Kill
+		totalDeaths += match.Death
+		totalKO += match.Kill
+
+		// Count MVPs
+		if match.Mvp == 1 {
+			totalMVPs++
+		}
+
+		// Sum total damage
+		totalDamage += match.Total_damage
+	}
+
+	// Calculate win rate and K/D ratio
+	winRate := 0.0
+	if totalMatches > 0 {
+		winRate = float64(totalWins) / float64(totalMatches) * 100
+	}
+	kdRatio := 0.0
+	if totalDeaths > 0 {
+		kdRatio = float64(totalKills) / float64(totalDeaths)
+	}
+
+	// Prepare results
+	analytics := fmt.Sprintf(
+		`{"Total Matches": %d, "Win Rate": %.2f, "K/D Ratio": %.2f, "KO": %d, "MVP Count": %d, "Total Damage": %d, "Total Wins": %d, "Total Losses": %d, "Total Draws": %d}`,
+		totalMatches, winRate, kdRatio, totalKO, totalMVPs, totalDamage, totalWins, totalLosses, totalDraws,
+	)
+
+	// Convert the slice to a JSON-like string representation
+	var result []string
+	for _, season := range Data {
+		result = append(result, "{"+season.ToString()+"}") // Add curly braces around each entry
+	}
+	finalResult := "[" + strings.Join(result, ",") + "]" // Join with commas and wrap in square brackets
+
+	// Combine final result and analytics into one JSON-like response
+	response := fmt.Sprintf(`{"Data": %s, "Stats": %s}`, finalResult, analytics)
+
+	// Send the combined result via TCP
+	services.SendTCP(message.USER_MESSAGE_GET_TS_CHARACTER_RECEIVE, response, character.Name)
+	log.Print("Final result sent to client: ", response)
+}
+
+func GetCurrentRankStarByName(Body string, character *models.CharacterInfo) {
+	// Name is now a string and does not need conversion
+	Name := Body
+	log.Print("Test GetCurrentRankStarByName value from Client: ", Name)
+
+	// Assuming sql.GetCurrentRank can handle a string argument
+	Data, err := sql.GetCurrentRank(Name)
+	if err != nil {
+		log.Print("Error fetching current rank:", err)
+		return
+	}
+
+	services.SendTCP(message.USER_MESSAGE_GET_MS_RANKING_RECEIVE, Data.ToString(), character.Name)
+	log.Print("Final result that sending to client: ", Data.ToString())
+}
+
+func DisconnectUser(characterName string) {
+	log.Print("Disconnecting user:", characterName)
+	services.DisconnectedClient(characterName)
+}
+
+// ฟังก์ชัน Insert ข้อมูลลงตาราง ConnectionHistory
+func InsertDataMuLog(Body string) {
+	parts := strings.Split(Body, ",")
+
+	// สร้างข้อมูลใหม่
+	newChar := database.ConnectionHistory{
+		AccountID:  parts[0],
+		ServerName: "Server_1",
+		IP:         parts[4],
+		Date:       time.Now(),
+		State:      "1",
+		HWID:       parts[3],
+	}
+
+	// INSERT ข้อมูลเข้า Database
+	err := services.GameDB.Create(&newChar).Error
+	if err != nil {
+		log.Println("Insert Error:", err)
+	} else {
+		log.Println("Insert Successful!", newChar)
+	}
+}
+
+func GetAccountRequest(Body string, username string) {
+
+	result := GetAccountRequestResult(Body)
+	InsertDataMuLog(Body)
+	fmt.Println("GetAccountRequest: ", result)
+
+	if result == 1 {
+		services.SendTCPUser(message.USER_MESSAGE_RESPONSE_ACCOUNT_REQUEST, "Get Account Complete", username)
+	} else {
+		services.SendTCPUser(message.USER_MESSAGE_RESPONSE_ACCOUNT_ERROR, "Database error", username)
+	}
+}
+
+func GetAccountRequestResult(Body string) int {
+
+	fmt.Println("GetAccountRequestResult: ", Body)
+
+	parts := strings.Split(Body, ",")
+
+	// ตรวจสอบผลลัพธ์
+	if len(parts) == 5 {
+		username := parts[0]
+		password := parts[1]
+		// Number := parts[2]
+		HWID := parts[3]
+		IpAddress := parts[4]
+
+		fmt.Println("Username:", username)
+		fmt.Println("Password:", password)
+
+		// ตรวจสอบว่ามีบัญชีในฐานข้อมูลหรือไม่
+		if checkMemberInfoInDatabase(username, password) {
+			// ตรวจสอบ Machine ID (HWID)
+			var HwidExists bool
+			err := services.GameDB.Raw(`SELECT CASE WHEN EXISTS (SELECT 1 FROM IGC_MachineID_Banned WHERE HWID = ?) THEN 1 ELSE 0 END`, HWID).Scan(&HwidExists).Error
+			if err != nil {
+				log.Print("Database error: ", err)
+			}
+
+			if HwidExists {
+				fmt.Println("[MuOnline] MachineID banned: ", HWID)
+				return 5
+			}
+
+			// บันทึกการเข้าสู่ระบบ
+			var list map[string]interface{}
+			errConnectMember := services.GameDB.Raw(`EXEC WZ_CONNECT_MEMB ?, 'Server1', ?`, username, IpAddress).Scan(&list).Error
+			if errConnectMember != nil {
+				fmt.Println("Error executing stored procedure:", err)
+				return 0
+			}
+
+			fmt.Println("[MuOnline] Login successful - ID: ", username)
+			return 1
+
+		} else {
+			log.Println("User not found or invalid password")
+			return 0
+		}
+
+	} else {
+		fmt.Println("Invalid input format :")
+		return 0
+	}
+}

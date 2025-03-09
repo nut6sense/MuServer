@@ -1,0 +1,759 @@
+package character
+
+import (
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"log"
+	"maxion-zone4/models"
+	databaseModel "maxion-zone4/models/database"
+	"maxion-zone4/models/message"
+	"maxion-zone4/services"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
+)
+
+const (
+	staminaResetHour   = 6
+	staminaResetMinute = 0
+	statusFilePath     = "stamina_reset_status.txt"
+)
+
+// Nut Close
+// func GetCharacterByKey(character_key string, character *models.CharacterInfo) {
+// 	log.Print("Get Character By Key: ", character_key)
+
+// 	var list []database.Character
+// 	err := services.GameDB.Raw(`EXEC maxion_get_character_by_key @character_key = ?`, character_key).Scan(&list).Error
+// 	if err != nil {
+// 		return
+// 	}
+
+// 	var characterObj = list[0]
+// 	wearCostumeOptionHex := hex.EncodeToString(characterObj.WearCostumeOption)
+
+// 	response := fmt.Sprintf(
+// 		"%d,%s,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d",
+// 		characterObj.CharacterKey,
+// 		strings.TrimSpace(characterObj.Name),
+// 		characterObj.Type,
+// 		strings.TrimSpace(characterObj.Style),
+// 		characterObj.Promotion,
+// 		characterObj.Money,
+// 		characterObj.Level,
+// 		characterObj.Experience,
+// 		characterObj.LadderGroup,
+// 		characterObj.LadderGrade,
+// 		characterObj.LadderExp,
+// 		characterObj.ClubKey,
+// 		characterObj.WearCostumeFlag,
+// 		wearCostumeOptionHex,
+// 		characterObj.Attribute,
+// 		characterObj.PromotionLevel,
+// 		characterObj.CharacterColor,
+// 	)
+
+// 	log.Print("Response: ", response)
+
+// 	// Send response to client
+// 	err = services.SendTCP(message.USER_MESSAGE_GET_CHARACTER_BY_KEY_RETURN, response, character.Name)
+// 	if err != nil {
+// 		log.Print("Error sending response: ", err)
+// 		return
+// 	}
+// }
+
+func GetFriends(body string, character *models.CharacterInfo) {
+	// Split message by comma first to get the character name from the message string
+	if body != "" {
+		character_name := body // Trim whitespace for safety
+
+		var list []map[string]interface{}
+		var result []map[string]interface{}
+		err := services.GameDB.Raw(`EXEC maxion_get_friends @character_name_my = ?`, character_name).Scan(&list).Error
+		if err != nil {
+			return
+		}
+
+		for _, list := range list {
+			if nameFriend, ok := list["name_friend"].(string); ok {
+				if _, exists := services.Clients[strings.TrimSpace(nameFriend)]; exists {
+					if nameFriend, ok := list["name_friend"].(string); ok {
+						list["name_friend"] = strings.TrimSpace(nameFriend)
+					}
+
+					if name_my, ok := list["name_my"].(string); ok {
+						list["name_my"] = strings.TrimSpace(name_my)
+					}
+
+					if gang_name, ok := list["gang_name"].(string); ok {
+						list["gang_name"] = strings.TrimSpace(gang_name)
+					}
+
+					result = append(result, list)
+				}
+			}
+		}
+
+		response, err := json.Marshal(result)
+		if err != nil {
+			return
+		}
+
+		if response != nil && string(response) != "null" {
+
+			log.Print("Response Get Friends: ", string(response))
+
+			err = services.SendTCP(message.USER_MESSAGE_GET_FRIEND_RETURN_LIST, string(response), character.Name)
+			if err != nil {
+				log.Print("Error sending response: ", err)
+				return
+			}
+		}
+	} else {
+		log.Print("Error: Invalid message body")
+		return
+	}
+}
+
+func GetFriendCount(character_name string, character *models.CharacterInfo) {
+	var list map[string]interface{}
+	err := services.GameDB.Raw(`EXEC maxion_get_friends_count @character_name_my = ?, @max_per_page = ?`, character_name, 10).Scan(&list).Error
+	if err != nil {
+		return
+	}
+
+	response, err := json.Marshal(list)
+	if err != nil {
+		return
+	}
+
+	log.Print("Response: ", string(response))
+
+	err = services.SendTCP(message.USER_MESSAGE_GET_FRIEND_COUNT_RETURN, string(response), character.Name)
+	if err != nil {
+		log.Print("Error sending response: ", err)
+		return
+	}
+}
+
+func GetCharacterRankingInformation(body string, character *models.CharacterInfo) {
+	// Split message by comma first to get the character name from the message string
+	if body != "" {
+		parts := strings.Split(body, ",")
+		if len(parts) < 2 {
+			log.Println("Error: message body does not contain enough parts")
+			return
+		}
+
+		character_key := parts[0]
+		index := parts[1]
+
+		var list map[string]interface{}
+		err := services.GameDB.Raw(`EXEC maxion_getcharacter_ranking @Character_ID = ?`, character_key).Scan(&list).Error
+		if err != nil {
+			return
+		}
+
+		// ต่อ string จาก list ที่ได้มา
+		response := fmt.Sprintf(
+			"%s,%d,%s,%s,%d,%d,%d,%d,%s,%d,%d,%d",
+			index,
+			list["RankID"],
+			strings.TrimSpace(list["rank_name"].(string)),
+			strings.TrimSpace(list["badge_path"].(string)),
+			list["badge_pos_x"],
+			list["badge_pos_y"],
+			list["character_key"],
+			list["current_rank"],
+			strings.TrimSpace(list["name"].(string)),
+			list["level"],
+			list["rank_protection_points"],
+			list["behaviour_score"],
+		)
+
+		log.Print("Response: ", string(response))
+
+		err = services.SendTCP(message.USER_MESSAGE_GET_CHARACTER_RANKING_INFO_RETURN, string(response), character.Name)
+		if err != nil {
+			log.Print("Error sending response: ", err)
+			return
+		}
+	}
+}
+
+func ScheduleResetStamina() {
+
+	for {
+		now := time.Now()
+		today := now.Format("2006-01-02")
+
+		if !isAlreadyResetToday(today) {
+
+			// Stamina reset time
+			resetTime := time.Date(now.Year(), now.Month(), now.Day(), staminaResetHour, staminaResetMinute, 0, 0, now.Location())
+
+			if now.Before(resetTime) {
+				// Sleep until reset time
+				time.Sleep(resetTime.Sub(now))
+			}
+
+			// Perform reset
+			// err := resetStamina() // Nut Close
+			// if err != nil {
+			// 	log.Printf("Error resetting stamina: %v", err)
+			// } else {
+			// 	log.Printf("Stamina reset performed at %v", time.Now())
+			// 	markResetComplete(today)
+			// }
+		}
+
+		// Sleep until next day
+		nextDay := now.Add(24 * time.Hour)
+		nextDayMidnight := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), 0, 0, 0, 0, now.Location())
+		time.Sleep(nextDayMidnight.Sub(now))
+	}
+
+}
+
+func isAlreadyResetToday(date string) bool {
+	content, err := os.ReadFile(statusFilePath)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(content), date)
+}
+
+func markResetComplete(date string) {
+	content := fmt.Sprintf("IsAlreadyResetStamina:%s\n", date)
+	err := os.WriteFile(statusFilePath, []byte(content), 0644)
+	if err != nil {
+		log.Printf("Error writing reset status: %v", err)
+	}
+}
+
+func resetStamina() error {
+
+	var list map[string]interface{}
+	err := services.GameDB.Raw(`EXEC maxion_reset_stamina`).Scan(&list).Error
+	if err != nil {
+		return fmt.Errorf("failed to reset stamina: %v", err)
+	}
+	return nil
+}
+
+func GetCharacterStamina(body string, character *models.CharacterInfo) {
+
+	if body != "" {
+
+		var character_key, err = strconv.Atoi(body)
+		if err != nil {
+			log.Print("Error in convert string to int: ", err)
+		}
+
+		var list map[string]interface{}
+		err = services.GameDB.Raw(`SELECT stamina, level FROM dbo.character WHERE character_key = ?`, character_key).Scan(&list).Error
+		if err != nil {
+			log.Print("Error in GetCharacterStamina: ", err)
+		}
+
+		var maxStamina int
+		err = services.GameDB.Raw(`EXEC maxion_characters_use_stamina ?, ?;`, body, 1).Scan(&maxStamina).Error
+
+		if err != nil {
+			log.Print("Error in GetCharacterStamina: ", err)
+		}
+
+		// combine string into stamina,maxStamina
+		response := fmt.Sprintf("%d,%d", list["stamina"], maxStamina)
+
+		err = services.SendTCP(message.USER_MESSAGE_GET_CHARACTER_STAMINA, response, character.Name)
+		if err != nil {
+			log.Print("Error in GetCharacterStamina: ", err)
+		}
+	}
+}
+
+func ValidateStaminaEntry(body string, character *models.CharacterInfo) {
+
+	if body == "" {
+		log.Print("Error: Invalid message body in ValidateStaminaEntry")
+		return
+	}
+
+	// The body should be the character_key, enum level
+	// need to split the body with comma
+
+	parts := strings.Split(body, ",")
+	if len(parts) < 2 {
+		log.Println("Error: message body does not contain enough parts")
+		return
+	}
+
+	character_key := parts[0]
+	level := parts[1]
+
+	// Convert the character_key to int
+	characterKeyInt, err := strconv.Atoi(character_key)
+
+	if err != nil {
+		log.Print("Error converting character_key to int:", err)
+		return
+	}
+
+	// For now every entry will require 4 stamina
+	staminaRequirement := 4
+
+	// TODO: Move this stamina requirement to sql server
+	var list map[string]interface{}
+	err = services.GameDB.Raw("EXEC maxion_validate_stamina_entry @character_key = ?, @stamina_requirement = ?", characterKeyInt, staminaRequirement).Scan(&list).Error
+	if err != nil {
+		log.Printf("Error executing maxion_validate_stamina_entry: %v", err)
+		return
+	}
+
+	canEnter := list["CanEnter"].(bool)
+
+	if !canEnter {
+
+		log.Printf("Character %d cannot enter level %s due to not having enough stamina", characterKeyInt, level)
+		err = services.SendTCP(message.USER_MESSAGE_REJECT_STAMINA_ENTRY, "0", character.Name)
+
+		if err != nil {
+			log.Printf("Error sending response: %v", err)
+		}
+		return
+	}
+
+	log.Printf("Character %d can enter level %s", characterKeyInt, level)
+
+	// Send the response
+	err = services.SendTCP(message.USER_MESSAGE_VALIDATE_STAMINA_ENTRY, level, character.Name)
+	if err != nil {
+		log.Printf("Error sending response: %v", err)
+		return
+	}
+
+}
+
+// GetCharacterInformation ใช้สำหรับดึงข้อมูลตัวละครจากฐานข้อมูล
+func GetCharacterInformation(body string, character *models.CharacterInfo) {
+	if body != "" {
+		body = models.User
+	}
+
+	var information map[string]models.CharacterInfo
+	err := services.GameDB.Raw(`EXEC tt_get_characters_by_user_key_ex_20100528 ?`, body).Scan(&information).Error
+	if err != nil {
+		log.Print("Error in GetCharacterInformation: ", err)
+		return
+	}
+}
+
+func SetCharacterInformation(body string) {
+	log.Print("SetCharacterInformation" + body)
+}
+
+// Create By Nut Prisoner
+// ---------------------------------------
+var nameAllCharacter = "AllCharacter"
+
+func getCharacterList(account string) string {
+	var count int64
+	services.GameDB.Table("dbo.AccountCharacter").Where("Id = ?", account).Count(&count)
+
+	if count == 0 {
+		log.Println("No Data Found for account:", account)
+
+		// สร้างข้อมูลใหม่
+		newChar := databaseModel.AccountCharacter{
+			Id: account,
+		}
+
+		// INSERT ข้อมูลเข้า Database
+		err := services.GameDB.Create(&newChar).Error
+		if err != nil {
+			log.Println("Insert Error:", err)
+		} else {
+			log.Println("Insert Successful!", newChar)
+		}
+	}
+
+	// Get Account Character Data
+	var dataAccountCharacter databaseModel.AccountCharacter
+	errAccountCharacter := services.GameDB.Table("dbo.AccountCharacter").Where("Id = ?", account).Find(&dataAccountCharacter).Error
+	if errAccountCharacter != nil {
+		log.Println("Query Error AccountCharacter:", errAccountCharacter)
+	} else {
+		log.Printf("Query Result AccountCharacter: %+v\n", reflect.ValueOf(dataAccountCharacter))
+	}
+
+	// Get Character Data
+	type CharacterWithGuild struct {
+		AccountID string `gorm:"column:AccountID"`
+		Name      string `gorm:"column:Name"`
+		Class     uint8  `gorm:"column:Class"`
+		CLevel    int    `gorm:"column:CLevel"`
+		MLevel    int    `gorm:"column:MLevel"`
+		GStatus   uint8  `gorm:"column:G_Status"`
+	}
+
+	var dataCharacter []CharacterWithGuild
+	errCharacter := services.GameDB.Table("Character").
+		Select("Character.AccountID, Character.Name, Character.Class, Character.CLevel, Character.MLevel, GuildMember.G_Status").
+		Joins("LEFT JOIN GuildMember ON Character.Name = GuildMember.Name").
+		Where("Character.AccountID = ?", account).
+		Find(&dataCharacter).Error
+
+	if errCharacter != nil {
+		log.Println("Query Error Character:", errCharacter)
+	} else {
+		log.Printf("Query Result Character: %+v\n", reflect.ValueOf(dataCharacter))
+	}
+
+	characterMap := make(map[string]struct {
+		Class   uint8
+		CLevel  int
+		MLevel  int
+		GStatus uint8
+	})
+
+	for _, char := range dataCharacter {
+		characterMap[char.Name] = struct {
+			Class   uint8
+			CLevel  int
+			MLevel  int
+			GStatus uint8
+		}{
+			Class:   char.Class,
+			CLevel:  char.CLevel,
+			MLevel:  char.MLevel,
+			GStatus: char.GStatus,
+		}
+	}
+
+	log.Printf("Query Result (Map): %+v\n", characterMap)
+
+	v := reflect.ValueOf(dataAccountCharacter)
+	var gameIDs []string
+
+	for i := 1; i <= 10; i++ {
+		field := v.FieldByName(fmt.Sprintf("GameID%d", i))
+
+		// ตรวจสอบว่าฟิลด์มีอยู่จริงและเป็น pointer
+		if field.IsValid() && field.Kind() == reflect.Ptr {
+			if field.IsNil() {
+				gameIDs = append(gameIDs, "null")
+			} else {
+				key := field.Elem().String() // ดึงค่า string จาก pointer
+				if dataChar, found := characterMap[key]; found {
+					numLevel := dataChar.CLevel + dataChar.MLevel
+					gameIDs = append(gameIDs, string(key)+"-"+strconv.Itoa(int(dataChar.Class))+"-"+strconv.Itoa(numLevel)+"-"+strconv.Itoa(int(dataChar.GStatus)))
+				} else {
+					gameIDs = append(gameIDs, "null") // ถ้าไม่เจอใน map ใส่ null
+				}
+			}
+		} else {
+			gameIDs = append(gameIDs, "null") // ถ้าไม่มีฟิลด์ หรือไม่ใช่ pointer ใส่ null
+		}
+	}
+
+	result := strings.Join(gameIDs, ",")
+	log.Println("AllCharacter", result)
+
+	return result
+}
+
+func GetCharList(Body string, username string) {
+	log.Print("GetCharList")
+	nameAllCharacter = getCharacterList(username)
+
+	if nameAllCharacter != "" {
+		fmt.Println("GetCharList OK: ", nameAllCharacter)
+		services.SendTCPUser(message.USER_MESSAGE_GET_CHARACTER_LIST, nameAllCharacter, username)
+		// return nameAllCharacter
+	} else {
+		fmt.Println("GetCharList Error: ", Body)
+		// return ""
+	}
+}
+
+func LoadDataCharacter(body string, username string) {
+	fmt.Println("LoadDataCharacter: ", body)
+	fmt.Println("LoadDataCharacter: ", username)
+
+	var data []databaseModel.Character
+	err := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Inventory").Where("AccountID = ?", username).Find(&data).Error
+	if err != nil {
+		log.Println("Query Error:", err)
+	} else {
+		log.Printf("Query Result: %+v\n", reflect.ValueOf(data))
+
+		var character string
+
+		// วนลูปแสดงผลทีละแถว
+		for _, char := range data {
+
+			var rawInventory []byte
+
+			fmt.Printf("AccountID: %s, Name: %s, Level: %d, Class: %d\n", char.AccountID, char.Name, char.CLevel, char.Class)
+			character += fmt.Sprintf(";AccountID:%s,Name:%s,Level:%d,Class:%d", char.AccountID, char.Name, char.CLevel, char.Class)
+
+			inventory := ConvertRawInventory(rawInventory)
+			// แปลงข้อมูลเป็น Item Array
+			items := ConvertInventory(inventory)
+
+			for i, item := range items {
+				if !item.IsEmpty {
+					section, index := GetItemSectionAndIndex(item.ItemType)
+					fmt.Printf("Slot %d - ItemType: %d, IsEmpty: %t , %d, %d\n", i, item.ItemType, item.IsEmpty, section, index)
+				}
+			}
+		}
+
+		if len(character) > 0 {
+			fmt.Println("data:", character)
+			services.SendTCPUser(message.USER_MESSAGE_UPDATE_CHARACTER_LIST, nameAllCharacter, username)
+		} else {
+			services.SendTCPUser(message.USER_MESSAGE_UPDATE_CHARACTER_LIST_ERROR, "Error Update Character List : ", username)
+		}
+	}
+}
+
+const InventoryBinarySize = 32 // ขนาดของข้อมูล Inventory ที่ดึงจากฐานข้อมูล
+const MaxInventoryItems = 12   // จำนวนไอเท็มสูงสุดที่ต้องดึง
+const InventoryEntrySize = 4
+
+type InventoryItem struct {
+	ItemType uint16
+	IsEmpty  bool
+}
+
+// แปลง `dbInventory` เป็น `InventoryItem[]`
+func ConvertInventory(dbInventory []byte) []InventoryItem {
+	var items []InventoryItem
+
+	// ตรวจสอบขนาดของ dbInventory (ต้องมีอย่างน้อย 4 ไบต์ต่อไอเท็ม)
+	if len(dbInventory) < InventoryEntrySize*MaxInventoryItems {
+		fmt.Println("Error: Inventory data is too short! Expected:", InventoryEntrySize*MaxInventoryItems, "Got:", len(dbInventory))
+		return nil
+	}
+
+	for i := 0; i < MaxInventoryItems; i++ {
+		offset := i * InventoryEntrySize // ใช้ 4 ไบต์ต่อไอเท็ม
+
+		itemTypeLow := uint16(dbInventory[offset])
+		itemType9thBit := (uint16(dbInventory[offset+2]) & 0x80) >> 7
+		itemType10to13 := (uint16(dbInventory[offset+3]) & 0xF0) >> 4
+
+		itemType := itemTypeLow | (itemType9thBit << 8) | (itemType10to13 << 9)
+
+		isEmpty := dbInventory[offset] == 0xFF && itemType9thBit == 1 && itemType10to13 == 0xF
+
+		items = append(items, InventoryItem{
+			ItemType: itemType,
+			IsEmpty:  isEmpty,
+		})
+	}
+
+	return items
+}
+
+func ConvertRawInventory(rawInventory []byte) []byte {
+
+	dbInventory := make([]byte, MaxInventoryItems*4) // 4 ไบต์ต่อไอเท็ม
+
+	if len(rawInventory) < MaxInventoryItems*4 {
+		return dbInventory
+	}
+
+	for i := 0; i < MaxInventoryItems; i++ {
+		offset := i * InventoryBinarySize // ตำแหน่งเริ่มต้นของไอเท็ม
+		dbOffset := i * 4                 // ตำแหน่งของ dbInventory (เก็บ 4 ไบต์ต่อไอเท็ม)
+
+		if rawInventory[offset] == 0xFF && (rawInventory[offset+7]&0x80) == 0x80 && (rawInventory[offset+10]&0xF0) == 0xF0 {
+			// ไอเท็มว่าง
+			dbInventory[dbOffset] = 0xFF
+			dbInventory[dbOffset+1] = 0xFF
+			dbInventory[dbOffset+2] = 0xFF
+			dbInventory[dbOffset+3] = 0xFF
+		} else {
+			// ไอเท็มจริง
+			dbInventory[dbOffset] = rawInventory[offset]     // 8 บิตแรกของ ItemType
+			dbInventory[dbOffset+1] = rawInventory[offset+1] // Item Level
+			dbInventory[dbOffset+2] = rawInventory[offset+7] // 8-bit บิตที่ 9
+			dbInventory[dbOffset+3] = rawInventory[offset+9] // 9-12 บิตของ ItemType
+		}
+	}
+
+	return dbInventory
+}
+
+// แปลง ItemType เป็น Section และ Index
+func GetItemSectionAndIndex(itemType uint16) (section int, index int) {
+	section = int(itemType) / 512
+	index = int(itemType) % 512
+	return section, index
+}
+
+func CharacterSelect(body string, username string) {
+	parts := strings.Split(body, ",")
+	if len(parts) < 3 {
+		log.Println("Invalid data format, expected")
+		return
+	}
+
+	characterName := parts[1] // ดึงค่าชื่อตัวละคร
+	accountID := parts[2]     // แปลง string -> int
+
+	log.Println("characterName:", characterName, accountID)
+
+	var data databaseModel.Character
+	result := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Life, MaxLife, Mana, MaxMana, Inventory").Where("Name = ?", characterName).First(&data)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			log.Println("Character not found", characterName)
+		} else {
+			log.Println("Database error:", result.Error)
+		}
+	} else {
+		log.Println("Character found:", data.Name)
+		log.Printf("Query Result: %+v\n", reflect.ValueOf(data))
+	}
+
+	items := SendInventoryToClient(data.Inventory)
+
+	// สร้างโครงสร้าง JSON
+	response := map[string]interface{}{
+		"AccountID": data.AccountID,
+		"Name":      data.Name,
+		"Level":     data.CLevel,
+		"Class":     data.Class,
+		"Life":      data.Life,
+		"MaxLife":   data.MaxLife,
+		"Mana":      data.Mana,
+		"MaxMana":   data.MaxMana,
+		"Items":     json.RawMessage(items), // JSON Inventory
+	}
+
+	// แปลงเป็น JSON String
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		log.Println("JSON Marshal failed:", err)
+		return
+	}
+
+	fmt.Println("responseJSON : ", string(responseJSON))
+
+	//fmt.Printf("items: %s", items)
+
+	services.SendTCPUser(message.USER_MESSAGE_SET_SELECT_CHARACTER, string(responseJSON), username)
+
+	log.Println("Player: ", accountID)
+	log.Println("Selected Character: ", characterName)
+}
+
+// ขนาดของไอเท็มใน database (32 ไบต์)
+const ItemSize = 32
+
+// โครงสร้างข้อมูลไอเท็ม
+type Item struct {
+	Index                int     `json:"index"`
+	Type                 uint16  `json:"type"`
+	Level                byte    `json:"level"`
+	Option1              byte    `json:"option1"`
+	Option2              byte    `json:"option2"`
+	Option3              byte    `json:"option3"`
+	Durability           byte    `json:"durability"`
+	Serial               uint64  `json:"serial"`
+	OptionNew            byte    `json:"option_new"`
+	SetOption            byte    `json:"set_option"`
+	SocketOptions        [5]byte `json:"socket_options"`
+	SocketBonusOption    byte    `json:"socket_bonus_option"`
+	PeriodItemOption     byte    `json:"period_item_option"`
+	JewelOfHarmonyOption byte    `json:"jewel_of_harmony_option"`
+	ItemEffectEx         byte    `json:"item_effect_ex"`
+	MainAttribute        byte    `json:"main_attribute"`
+}
+
+func SendInventoryToClient(data []byte) string {
+	// ตรวจสอบว่าขนาดของข้อมูลถูกต้อง
+	if len(data)%ItemSize != 0 {
+		fmt.Printf("invalid inventory data length")
+	}
+
+	// คำนวณจำนวนไอเท็ม
+	itemCount := len(data) / ItemSize
+	items := make([]Item, 0, itemCount)
+
+	// วนลูปแปลงข้อมูลไอเท็ม
+	for i := 0; i < itemCount; i++ {
+		start := i * ItemSize
+		end := start + ItemSize
+
+		// แปลงข้อมูลเป็น Item
+		item, isEmpty := ConvertItem(data[start:end], i)
+
+		// ถ้าไอเท็มไม่ว่าง ให้เพิ่มเข้าไปใน array
+		if !isEmpty {
+			items = append(items, *item)
+		}
+	}
+
+	// แปลงเป็น JSON
+	jsonData, err := json.Marshal(items)
+	if err != nil {
+		fmt.Printf("error : %v", err)
+	}
+
+	// ส่ง JSON ไปยัง Client (return string)
+	return string(jsonData)
+}
+
+// แปลง byte array เป็น Item Struct
+func ConvertItem(data []byte, index int) (*Item, bool) {
+	if len(data) < ItemSize {
+		fmt.Println("invalid item data length")
+	}
+
+	// อ่านค่า Type ตามการคำนวณใน ItemByteConvert32()
+	itemTypeLow := uint16(data[0])
+	itemType9thBit := (uint16(data[7]) & 0x80) >> 7 // บิต 9 อยู่ที่ buf[8] บิตสูงสุด
+	itemType10to13 := (uint16(data[9]) & 0xF0) >> 4 // บิต 10-13 อยู่ที่ buf[9] บิตสูงสุด
+
+	itemType := itemTypeLow | (itemType9thBit << 8) | (itemType10to13 << 9)
+
+	// ตรวจสอบว่าไอเท็มเป็นค่าว่าง (เทียบกับ ConvertInventory())
+	isEmpty := data[0] == 0xFF && itemType9thBit == 1 && itemType10to13 == 0xF
+
+	if isEmpty {
+		return nil, true
+	}
+
+	// อ่านค่า Serial (แยกเป็น 2 ส่วน: HIDWORD และ LODWORD)
+	serial := uint64(binary.LittleEndian.Uint32(data[20:24]))<<32 | uint64(binary.LittleEndian.Uint32(data[16:20]))
+
+	return &Item{
+		Index:                index,
+		Type:                 itemType,
+		Level:                (data[2] >> 3) & 0x0F,
+		Option1:              (data[2] >> 7) & 0x01,
+		Option2:              (data[2] >> 2) & 0x01,
+		Option3:              data[2] & 0x03,
+		Durability:           data[3],
+		Serial:               serial,
+		OptionNew:            data[8], // ใช้ค่าใน `buf[8]`
+		SetOption:            data[9], // ใช้ค่าใน `buf[9]`
+		SocketOptions:        [5]byte{data[10], data[11], data[12], data[13], data[14]},
+		SocketBonusOption:    data[15],
+		PeriodItemOption:     (data[9] >> 1) & 0x01, // ใช้ `buf[9]` บิตที่ 1
+		JewelOfHarmonyOption: data[10],
+		ItemEffectEx:         data[11],
+		MainAttribute:        data[12],
+	}, false
+}

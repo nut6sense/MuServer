@@ -1,0 +1,24 @@
+version: '3.8'
+networks:
+  my_network:
+    driver: bridge
+    
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"  # เปลี่ยนเป็นพอร์ตที่แอปของคุณใช้งาน
+      - "9000:9000/udp"
+      - "9001:9001"  # เปลี่ยนเป็นพอร์ตที่แอปของคุณใช้งาน
+      - "9001:9001/udp"
+    restart: always
+    volumes:
+      - .:/app       # Mount source code สำหรับการพัฒนา
+  # redis:
+  #   image: "redis:alpine"
+  #   ports:
+  #     - "6379:6379"
+  #   networks:
+  #     - my_network
