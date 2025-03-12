@@ -8,6 +8,7 @@ import (
 	// "gorm.io/driver/sqlserver"
 	"log"
 	// "maxion-zone4/config"
+	"encoding/json"
 	"maxion-zone4/models"
 	"maxion-zone4/models/database"
 	"maxion-zone4/models/message"
@@ -38,27 +39,32 @@ func checkMemberInfoInDatabase(account, password string) bool {
 	return exists
 }
 
+type LoginData struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 func LoginUser(Body string, username string) {
 	log.Print("Login User: ", Body)
 
-	parts := strings.Split(Body, ",")
+	var data LoginData
+	err := json.Unmarshal([]byte(Body), &data)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
 
-	// ตรวจสอบผลลัพธ์
-	if len(parts) == 2 {
-		username := parts[0]
-		password := parts[1]
-		fmt.Println("Username:", username)
-		fmt.Println("Password:", password)
+	// Check Username & Password Is Empty
+	if data.Username == "" || data.Password == "" {
+		fmt.Println("Username or Password is missing!")
+		return
+	}
 
-		if checkMemberInfoInDatabase(username, password) {
-			services.SendTCPUser(message.USER_MESSAGE_RESPONSE_LOGIN, "Login Success TCP From Go naja", username)
-		} else {
-			services.SendTCPUser(message.USER_MESSAGE_SEND_CLIENT_ERROR, "User not found or invalid password", username)
-			log.Println("User not found or invalid password")
-		}
-
+	if checkMemberInfoInDatabase(data.Username, data.Password) {
+		services.SendTCPUser(message.USER_MESSAGE_RESPONSE_LOGIN, "Login Success TCP From Go naja", username)
 	} else {
-		fmt.Println("Invalid input format :")
+		services.SendTCPUser(message.USER_MESSAGE_SEND_CLIENT_ERROR, "User not found or invalid password", username)
+		log.Println("User not found or invalid password")
 	}
 }
 
@@ -367,62 +373,64 @@ func GetAccountRequest(Body string, username string) {
 	InsertDataMuLog(Body)
 	fmt.Println("GetAccountRequest: ", result)
 
-	if result == 1 {
+	if result {
 		services.SendTCPUser(message.USER_MESSAGE_RESPONSE_ACCOUNT_REQUEST, "Get Account Complete", username)
 	} else {
 		services.SendTCPUser(message.USER_MESSAGE_RESPONSE_ACCOUNT_ERROR, "Database error", username)
 	}
 }
 
-func GetAccountRequestResult(Body string) int {
+type accountData struct {
+	Username   string `json:"username"`
+	ServerCode string `json:"serverCode"`
+	ServerName string `json:"serverName"`
+	IP         string `json:"ip"`
+	MAC        string `json:"mac"`
+	DeviceId   string `json:"deviceId"`
+}
 
+func GetAccountRequestResult(Body string) bool {
+	var exists bool
 	fmt.Println("GetAccountRequestResult: ", Body)
 
-	parts := strings.Split(Body, ",")
-
-	// ตรวจสอบผลลัพธ์
-	if len(parts) == 5 {
-		username := parts[0]
-		password := parts[1]
-		// Number := parts[2]
-		HWID := parts[3]
-		IpAddress := parts[4]
-
-		fmt.Println("Username:", username)
-		fmt.Println("Password:", password)
-
-		// ตรวจสอบว่ามีบัญชีในฐานข้อมูลหรือไม่
-		if checkMemberInfoInDatabase(username, password) {
-			// ตรวจสอบ Machine ID (HWID)
-			var HwidExists bool
-			err := services.GameDB.Raw(`SELECT CASE WHEN EXISTS (SELECT 1 FROM IGC_MachineID_Banned WHERE HWID = ?) THEN 1 ELSE 0 END`, HWID).Scan(&HwidExists).Error
-			if err != nil {
-				log.Print("Database error: ", err)
-			}
-
-			if HwidExists {
-				fmt.Println("[MuOnline] MachineID banned: ", HWID)
-				return 5
-			}
-
-			// บันทึกการเข้าสู่ระบบ
-			var list map[string]interface{}
-			errConnectMember := services.GameDB.Raw(`EXEC WZ_CONNECT_MEMB ?, 'Server1', ?`, username, IpAddress).Scan(&list).Error
-			if errConnectMember != nil {
-				fmt.Println("Error executing stored procedure:", err)
-				return 0
-			}
-
-			fmt.Println("[MuOnline] Login successful - ID: ", username)
-			return 1
-
-		} else {
-			log.Println("User not found or invalid password")
-			return 0
-		}
-
-	} else {
-		fmt.Println("Invalid input format :")
-		return 0
+	var data accountData
+	err := json.Unmarshal([]byte(Body), &data)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		exists = false
 	}
+
+	// แปลง ServerCode จาก string เป็น int
+	serverCode, err := strconv.Atoi(data.ServerCode)
+	if err != nil {
+		fmt.Println("Error converting ServerCode to int:", err)
+		exists = false
+	}
+
+	// สร้างข้อมูลใหม่
+	newChar := database.MemberStatus{
+		MembID:       data.Username,
+		ConnectStat:  1,
+		ServerCode:   serverCode,
+		ServerName:   data.ServerName,
+		IP:           data.IP,
+		MAC:          &data.MAC,
+		DeviceId:     &data.DeviceId,
+		ConnectTM:    time.Now(),
+		DisConnectTM: nil,
+	}
+
+	fmt.Println("saveMemberStatus: ", newChar)
+
+	// Create Order Update Table member_status
+	errSave := services.GameDB.Save(&newChar).Error
+	if errSave != nil {
+		exists = false
+		fmt.Println("Error:", errSave)
+	} else {
+		exists = true
+		fmt.Println("Insert or Update Successful!")
+	}
+
+	return exists
 }
