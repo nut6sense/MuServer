@@ -3,6 +3,7 @@ package character
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"maxion-zone4/models"
@@ -439,32 +440,60 @@ func getCharacterList(account string) string {
 
 	log.Printf("Query Result (Map): %+v\n", characterMap)
 
+	// ใช้ Reflection ตรวจสอบ GameID1 - GameID10
 	v := reflect.ValueOf(dataAccountCharacter)
 	var gameIDs []string
 
 	for i := 1; i <= 10; i++ {
-		field := v.FieldByName(fmt.Sprintf("GameID%d", i))
+		fieldName := fmt.Sprintf("GameID%d", i)
+		field := v.FieldByName(fieldName)
 
-		// ตรวจสอบว่าฟิลด์มีอยู่จริงและเป็น pointer
-		if field.IsValid() && field.Kind() == reflect.Ptr {
+		// ตรวจสอบว่า Field มีอยู่จริงและสามารถเข้าถึงได้
+		if !field.IsValid() {
+			log.Println("Field Not Found:", fieldName)
+			gameIDs = append(gameIDs, "null")
+			continue
+		}
+
+		// ถ้าเป็น `string` ธรรมดา
+		if field.Kind() == reflect.String {
+			key := field.String()
+			if key == "" {
+				gameIDs = append(gameIDs, "null")
+			} else if dataChar, found := characterMap[key]; found {
+				numLevel := dataChar.CLevel + dataChar.MLevel
+				gameIDs = append(gameIDs, key+"-"+strconv.Itoa(int(dataChar.Class))+"-"+strconv.Itoa(numLevel)+"-"+strconv.Itoa(int(dataChar.GStatus)))
+			} else {
+				gameIDs = append(gameIDs, "null")
+			}
+			continue
+		}
+
+		// ถ้าเป็น Pointer ไปที่ String (`*string`)
+		if field.Kind() == reflect.Ptr {
 			if field.IsNil() {
+				log.Println("⚠️", fieldName, "is nil")
 				gameIDs = append(gameIDs, "null")
 			} else {
-				key := field.Elem().String() // ดึงค่า string จาก pointer
+				key := field.Elem().String()
 				if dataChar, found := characterMap[key]; found {
 					numLevel := dataChar.CLevel + dataChar.MLevel
-					gameIDs = append(gameIDs, string(key)+"-"+strconv.Itoa(int(dataChar.Class))+"-"+strconv.Itoa(numLevel)+"-"+strconv.Itoa(int(dataChar.GStatus)))
+					gameIDs = append(gameIDs, key+"-"+strconv.Itoa(int(dataChar.Class))+"-"+strconv.Itoa(numLevel)+"-"+strconv.Itoa(int(dataChar.GStatus)))
 				} else {
-					gameIDs = append(gameIDs, "null") // ถ้าไม่เจอใน map ใส่ null
+					gameIDs = append(gameIDs, "null")
 				}
 			}
-		} else {
-			gameIDs = append(gameIDs, "null") // ถ้าไม่มีฟิลด์ หรือไม่ใช่ pointer ใส่ null
+			continue
 		}
+
+		// ถ้าไม่ใช่ `string` หรือ `*string` ให้ใส่ `null`
+		log.Println("Invalid Field Type:", fieldName)
+		gameIDs = append(gameIDs, "null")
 	}
 
+	// รวมค่าเป็น String
 	result := strings.Join(gameIDs, ",")
-	log.Println("AllCharacter", result)
+	log.Println("AllCharacter:", result)
 
 	return result
 }
@@ -474,7 +503,8 @@ func GetCharList(Body string, username string) {
 	nameAllCharacter = getCharacterList(username)
 
 	if nameAllCharacter != "" {
-		fmt.Println("GetCharList OK: ", nameAllCharacter)
+		fmt.Println("GetCharList Username: ", username)
+		fmt.Println("GetCharList Result: ", nameAllCharacter)
 		services.SendTCPUser(message.USER_MESSAGE_GET_CHARACTER_LIST, nameAllCharacter, username)
 		// return nameAllCharacter
 	} else {
@@ -492,28 +522,28 @@ func LoadDataCharacter(body string, username string) {
 	if err != nil {
 		log.Println("Query Error:", err)
 	} else {
-		log.Printf("Query Result: %+v\n", reflect.ValueOf(data))
+		// log.Printf("Query Result: %+v\n", len(data))
 
 		var character string
 
 		// วนลูปแสดงผลทีละแถว
 		for _, char := range data {
 
-			var rawInventory []byte
+			// var rawInventory []byte
 
 			fmt.Printf("AccountID: %s, Name: %s, Level: %d, Class: %d\n", char.AccountID, char.Name, char.CLevel, char.Class)
 			character += fmt.Sprintf(";AccountID:%s,Name:%s,Level:%d,Class:%d", char.AccountID, char.Name, char.CLevel, char.Class)
 
-			inventory := ConvertRawInventory(rawInventory)
-			// แปลงข้อมูลเป็น Item Array
-			items := ConvertInventory(inventory)
+			// inventory := ConvertRawInventory(rawInventory)
+			// // แปลงข้อมูลเป็น Item Array
+			// items := ConvertInventory(inventory)
 
-			for i, item := range items {
-				if !item.IsEmpty {
-					section, index := GetItemSectionAndIndex(item.ItemType)
-					fmt.Printf("Slot %d - ItemType: %d, IsEmpty: %t , %d, %d\n", i, item.ItemType, item.IsEmpty, section, index)
-				}
-			}
+			// for i, item := range items {
+			// 	if !item.IsEmpty {
+			// 		section, index := GetItemSectionAndIndex(item.ItemType)
+			// 		fmt.Printf("Slot %d - ItemType: %d, IsEmpty: %t , %d, %d\n", i, item.ItemType, item.IsEmpty, section, index)
+			// 	}
+			// }
 		}
 
 		if len(character) > 0 {
@@ -756,4 +786,141 @@ func ConvertItem(data []byte, index int) (*Item, bool) {
 		ItemEffectEx:         data[11],
 		MainAttribute:        data[12],
 	}, false
+}
+
+type DataDefaultClass struct {
+	Class      int `json:"class" gorm:"column:Class"`
+	Strength   int `json:"strength" gorm:"column:Strength"`
+	Dexterity  int `json:"dexterity" gorm:"column:Dexterity"`
+	Vitality   int `json:"vitality" gorm:"column:Vitality"`
+	Energy     int `json:"energy" gorm:"column:Energy"`
+	Leadership int `json:"leadership" gorm:"column:Leadership"`
+}
+
+func GetDefaultClassData(classID int) (databaseModel.DefaultClassType, error) {
+	var data databaseModel.DefaultClassType
+
+	// Query จากฐานข้อมูล
+	result := services.GameDB.Table("DefaultClassType").Select("Class, Strength, Dexterity, Vitality, Energy, Leadership").Where("Class = ?", classID).First(&data)
+
+	// ถ้ามี Error ระหว่าง Query
+	if result.Error != nil {
+		log.Println("Query Error:", result.Error)
+		return data, errors.New("Error loading default class type query")
+	}
+
+	// ถ้าไม่มีข้อมูล
+	if result.RowsAffected == 0 {
+		log.Println("⚠️ No data found for class ID:", classID)
+		return data, errors.New("No data found for class ID")
+	}
+
+	log.Println("Query Result:", reflect.ValueOf(data))
+	return data, nil
+}
+
+func LoadDefaultClassType(body string, username string) {
+	fmt.Println("LoadDefaultClassType: ", body)
+	fmt.Println("LoadDefaultClassType: ", username)
+
+	// แปลง `body` เป็น `int`
+	classID, err := strconv.Atoi(body)
+	if err != nil {
+		log.Println("Invalid Class ID:", body)
+		services.SendTCPUser(message.USER_MESSAGE_LOAD_DEFAULT_CLASS_ERROR, "Error Load Default Class Type: Invalid Class ID", username)
+		return
+	}
+
+	data, err := GetDefaultClassData(classID)
+	if err != nil {
+		fmt.Println(err.Error())
+		services.SendTCPUser(message.USER_MESSAGE_LOAD_DEFAULT_CLASS_ERROR, err.Error(), username)
+		return
+	}
+
+	// แปลงเป็น JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Println("Error converting to JSON:", err)
+		services.SendTCPUser(message.USER_MESSAGE_LOAD_DEFAULT_CLASS_ERROR, "Error Load Default Class Type Convert JSON", username)
+		return
+	}
+
+	// ส่งข้อมูลกลับ
+	services.SendTCPUser(message.USER_MESSAGE_LOAD_DEFAULT_CLASS_RETURN, string(jsonData), username)
+}
+
+func ExecCreateCharacter(accountID, name string, class, serverCode int) (int, error) {
+	var rawResult []uint8 // Use byte slice to handle the SQL Server return type
+	var result int
+
+	// ใช้ Raw Query และ Scan ค่าผลลัพธ์เข้าไปที่ตัวแปร `result`
+	err := services.GameDB.Raw("EXEC Maxion_CreateCharacter @AccountID = ?, @Name = ?, @Class = ?, @ServerCode = ?", accountID, name, class, serverCode).Scan(&rawResult).Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	// Convert byte slice to integer
+	result = int(rawResult[0])
+
+	return result, nil
+}
+
+func CreateCharacter(body string, username string) {
+	// body = AccountId,ServerCode,CharName,ClassId
+	fmt.Println("CreateCharacter Body: ", body)
+
+	parts := strings.Split(body, ",")
+
+	if len(parts) < 4 {
+		log.Println("Invalid data format")
+		return
+	}
+
+	accountId := parts[0]
+	svCode := parts[1]
+	charName := parts[2]
+	class := parts[3]
+
+	fmt.Println("CreateCharacter AccountId: ", accountId)
+	fmt.Println("CreateCharacter ServerCode: ", svCode)
+	fmt.Println("CreateCharacter CharName: ", charName)
+	fmt.Println("CreateCharacter ClassId: ", class)
+
+	// แปลง `body` เป็น `int`
+	classId, err := strconv.Atoi(class)
+	if err != nil {
+		log.Println("Invalid Class ID:", class)
+		return
+	}
+
+	serverCode, err := strconv.Atoi(svCode)
+	if err != nil {
+		log.Println("Invalid Server Code:", svCode)
+		return
+	}
+
+	result, err := ExecCreateCharacter(accountId, charName, classId, serverCode)
+	if err != nil {
+		log.Println("Error occurred while creating character: ", err)
+	}
+
+	msg := "Character created successfully!"
+	event := message.USER_MESSAGE_CREATE_CHARACTER_RETURN
+
+	switch result {
+	case 0x01:
+		msg = "Character name already exists"
+		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+	case 0x03:
+		msg = "No available slot to create a character"
+		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+	case 0x02:
+		msg = "Unknown error occurred"
+		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+	}
+
+	fmt.Println("CreateCharacter Return: ", msg)
+	services.SendTCPUser(event, msg, username)
 }

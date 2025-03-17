@@ -20,6 +20,8 @@ var packetHandlerSingle = map[int]func(body string, username string){
 	message.SERVER_MESSAGE_GET_SERVER_LIST:    server_controller.GetServerList,
 	message.SERVER_MESSAGE_GET_CHANEL_LIST:    server_controller.GetChanelList,
 	message.SERVER_MESSAGE_SELECT_CHANEL:      server_controller.SelectChanel,
+	message.USER_MESSAGE_LOAD_DEFAULT_CLASS:   character_controller.LoadDefaultClassType,
+	message.USER_MESSAGE_CREATE_CHARACTER:     character_controller.CreateCharacter,
 }
 
 var packetHandlers = map[int]func(body string, character *models.CharacterInfo){
