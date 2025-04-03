@@ -381,7 +381,7 @@ func getCharacterList(account string) string {
 		if err != nil {
 			log.Println("Insert Error:", err)
 		} else {
-			log.Println("Insert Successful!", newChar)
+			fmt.Println("Insert AccountCharacter Successful!", newChar)
 		}
 	}
 
@@ -391,7 +391,7 @@ func getCharacterList(account string) string {
 	if errAccountCharacter != nil {
 		log.Println("Query Error AccountCharacter:", errAccountCharacter)
 	} else {
-		log.Printf("Query Result AccountCharacter: %+v\n", reflect.ValueOf(dataAccountCharacter))
+		fmt.Printf("Query Result AccountCharacter: %+v\n", reflect.ValueOf(dataAccountCharacter))
 	}
 
 	// Get Character Data
@@ -499,7 +499,7 @@ func getCharacterList(account string) string {
 }
 
 func GetCharList(Body string, username string) {
-	log.Print("GetCharList")
+	fmt.Print("GetCharList")
 	nameAllCharacter = getCharacterList(username)
 
 	if nameAllCharacter != "" {

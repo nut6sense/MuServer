@@ -23,7 +23,7 @@ func InitializeRedisDatabases() {
 	}
 
 	// Redis connection with authentication
-	log.Println("Connecting to Redis")
+	fmt.Println("Connecting to Redis")
 	RedisClient = redis.NewClient(&redis.Options{
 		Addr:     redisAddr, // e.g., "localhost:6379"
 		Username: redisUser, // Use "" if Redis does not require ACL users
@@ -36,7 +36,7 @@ func InitializeRedisDatabases() {
 	if err != nil {
 		log.Fatal("Error connecting to Redis:", err)
 	}
-	log.Println("Connected to Redis")
+	fmt.Println("Connected to Redis")
 
 	InitializeRedisMaster()
 }

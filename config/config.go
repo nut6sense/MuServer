@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/aes"
+	"encoding/hex"
 	"log"
 	"net"
 	"os"
@@ -44,18 +46,43 @@ func LoadConfig() {
 	// Load AES Key
 	keyString := os.Getenv("AES_KEY")
 	AESKey = []byte(keyString)
-	// Load AES IV from hex string and convert to []byte
-	ivString := os.Getenv("AES_IV")
-	ivParts := strings.Split(ivString, ",")
-	var iv []byte
-	for _, part := range ivParts {
-		val, err := strconv.Atoi(strings.TrimSpace(part))
-		if err != nil {
-			log.Fatal("Invalid AES_IV format:", err)
-		}
-		iv = append(iv, byte(val))
+	// // Load AES IV from hex string and convert to []byte
+	// ivString := os.Getenv("AES_IV")
+	// ivParts := strings.Split(ivString, ",")
+	// var iv []byte
+	// for _, part := range ivParts {
+	// 	val, err := strconv.Atoi(strings.TrimSpace(part))
+	// 	if err != nil {
+	// 		log.Fatal("Invalid AES_IV format:", err)
+	// 	}
+	// 	iv = append(iv, byte(val))
+	// }
+	// AESIV = iv
+
+	// อ่านค่า AES_IV จาก .env
+	aesIVHex := os.Getenv("AES_IV")
+	if aesIVHex == "" {
+		log.Fatal("AES_IV not set in .env")
 	}
-	AESIV = iv
+
+	// ตรวจสอบว่า AES_IV มีความยาวถูกต้อง (ต้องเป็น 32 ตัวอักษร Hex = 16 bytes)
+	if len(strings.TrimSpace(aesIVHex)) != 32 {
+		log.Fatalf("Invalid AES_IV length: must be 32 hex characters (16 bytes), but got %d", len(aesIVHex))
+	}
+
+	// แปลงจาก Hex เป็น []byte
+	aesIV, err := hex.DecodeString(aesIVHex)
+	if err != nil {
+		log.Fatalf("Invalid AES_IV format: %v", err)
+	}
+
+	// ตรวจสอบว่าความยาวของ IV ถูกต้อง (AES ใช้ 16 ไบต์)
+	if len(aesIV) != aes.BlockSize {
+		log.Fatalf("AES_IV must be %d bytes, got %d", aes.BlockSize, len(aesIV))
+	}
+
+	// เซ็ตค่า IV ให้กับตัวแปร global
+	AESIV = aesIV
 }
 func LoadConfigTestLocal() {
 	AppConfig = make(map[string]string)

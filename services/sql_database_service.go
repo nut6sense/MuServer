@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 	"maxion-zone4/config"
 
@@ -33,7 +34,7 @@ func connectDB(dsnConfig string) *gorm.DB {
 	if err != nil {
 		log.Fatal("Failed to initialize database connection pool game:", err)
 	}
-	log.Println("Database game connected successfully")
+	fmt.Println("Database game connected successfully")
 
 	// ตั้งค่า Connection Pool
 	sqlDB.SetMaxIdleConns(20)                  // จำนวนการเชื่อมต่อที่รอใช้งาน
@@ -62,7 +63,7 @@ func DBGameConnect() {
 	if err != nil {
 		log.Fatal("Failed to initialize database connection pool game:", err)
 	}
-	log.Println("Database game connected successfully")
+	fmt.Println("Database game connected successfully")
 
 	// ตั้งค่า Connection Pool
 	sqlDB.SetMaxIdleConns(20)                  // จำนวนการเชื่อมต่อที่รอใช้งาน
@@ -88,7 +89,7 @@ func DBGameInventoryConnect() {
 	if err != nil {
 		log.Fatal("Failed to initialize database game_inventory connection pool:", err)
 	}
-	log.Println("Database game_inventory connected successfully")
+	fmt.Println("Database game_inventory connected successfully")
 
 	// ตั้งค่า Connection Pool
 	sqlDB.SetMaxIdleConns(20)                  // จำนวนการเชื่อมต่อที่รอใช้งาน

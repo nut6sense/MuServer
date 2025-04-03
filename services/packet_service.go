@@ -78,7 +78,7 @@ func SendTCPClient(conn net.Conn, header int, body string) error {
 		return fmt.Errorf("incomplete write: %d/%d bytes", bytesWritten, len(completeMessage))
 	}
 
-	log.Printf("Message successfully sent (total bytes: %d)", len(completeMessage))
+	fmt.Printf("Message successfully sent (total bytes: %d)", len(completeMessage))
 	return nil
 }
 
@@ -92,7 +92,7 @@ func SendTCP(header int, body string, characterName string) error {
 		return fmt.Errorf("client %s not connected", characterName)
 	}
 
-	log.Printf("Sending message to %s: %d|%s|%s\n", characterName, header, body, conn.RemoteAddr())
+	fmt.Printf("Sending message to %s: %d|%s|%s\n", characterName, header, body, conn.RemoteAddr())
 
 	// SendTCPClient is called while still holding the lock test
 	err := SendTCPClient(conn, header, body)
@@ -113,7 +113,7 @@ func SendTCPUser(header int, body string, username string) error {
 		return fmt.Errorf("client %s not connected", username)
 	}
 
-	log.Printf("Sending message to %s: %d|%s|%s\n", username, header, body, conn.RemoteAddr())
+	fmt.Printf("Sending message to %s: %d|%s|%s\n", username, header, body, conn.RemoteAddr())
 
 	// SendTCPClient is called while still holding the lock test
 	err := SendTCPClient(conn, header, body)

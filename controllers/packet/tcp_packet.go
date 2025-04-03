@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"fmt"
 	"log"
 	character_controller "maxion-zone4/controllers/character"
 	server_controller "maxion-zone4/controllers/server"
@@ -18,10 +19,11 @@ var packetHandlerSingle = map[int]func(body string, username string){
 	message.USER_MESSAGE_CHARACTER_STATUS:     user_controller.GetAccountRequest,
 	message.USER_MESSAGE_GET_CHARACTER_SELECT: character_controller.CharacterSelect,
 	message.SERVER_MESSAGE_GET_SERVER_LIST:    server_controller.GetServerList,
-	message.SERVER_MESSAGE_GET_CHANEL_LIST:    server_controller.GetChanelList,
-	message.SERVER_MESSAGE_SELECT_CHANEL:      server_controller.SelectChanel,
+	message.SERVER_MESSAGE_GET_CHANNEL_LIST:   server_controller.GetChannelList,
+	message.SERVER_MESSAGE_SELECT_CHANNEL:     server_controller.SelectChannel,
 	message.USER_MESSAGE_LOAD_DEFAULT_CLASS:   character_controller.LoadDefaultClassType,
 	message.USER_MESSAGE_CREATE_CHARACTER:     character_controller.CreateCharacter,
+	message.USER_MESSAGE_SERVER_LOGOUT_USER:   user_controller.RemoveOnlineUser,
 }
 
 var packetHandlers = map[int]func(body string, character *models.CharacterInfo){
@@ -109,7 +111,7 @@ func ProcessTCPSingle(packet string, username string) {
 		return
 	}
 
-	log.Println("ProcessTCPSingle packet: ", packet)
+	fmt.Println("ProcessTCPSingle packet: ", packet)
 
 	body := strings.Split(packet, "|")[1]
 	if body == "" {
@@ -121,7 +123,7 @@ func ProcessTCPSingle(packet string, username string) {
 	} else {
 		log.Println("Unknown Packet Type")
 	}
-	log.Println("Header msg: ", header)
+	fmt.Println("Header msg: ", header)
 
 }
 
@@ -154,6 +156,6 @@ func ProcessTCP(packet string) {
 		log.Println("Unknown Packet Type")
 	}
 
-	log.Println("Header msg: ", header)
+	fmt.Println("Header msg: ", header)
 
 }

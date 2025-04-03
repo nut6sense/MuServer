@@ -2,6 +2,7 @@ package user_controller
 
 import (
 	// sqldb "database/sql"
+	"context"
 	"fmt"
 	"time"
 
@@ -45,7 +46,7 @@ type LoginData struct {
 }
 
 func LoginUser(Body string, username string) {
-	log.Print("Login User: ", Body)
+	fmt.Print("Login User: ", Body)
 
 	var data LoginData
 	err := json.Unmarshal([]byte(Body), &data)
@@ -69,7 +70,7 @@ func LoginUser(Body string, username string) {
 }
 
 func LoginUserUDP(Body string) {
-	log.Print("Login User: ", Body)
+	fmt.Print("Login User UDP: ", Body)
 
 	services.SendUDP(message.USER_MESSAGE_900, "Login Success UDP KRUB")
 }
@@ -346,16 +347,29 @@ func DisconnectUser(characterName string) {
 
 // ฟังก์ชัน Insert ข้อมูลลงตาราง ConnectionHistory
 func InsertDataMuLog(Body string) {
-	parts := strings.Split(Body, ",")
+
+	fmt.Println("InsertDataMuLog : ", Body)
+
+	var data accountData
+	errJsonData := json.Unmarshal([]byte(Body), &data)
+	if errJsonData != nil {
+		fmt.Println("Error parsing JSON:", errJsonData)
+	}
+
+	svCode, _ := strconv.Atoi(data.ServerCode)
+	chCode, _ := strconv.Atoi(data.ChannelCode)
 
 	// สร้างข้อมูลใหม่
 	newChar := database.ConnectionHistory{
-		AccountID:  parts[0],
-		ServerName: "Server_1",
-		IP:         parts[4],
-		Date:       time.Now(),
-		State:      "1",
-		HWID:       parts[3],
+		AccountID:   data.Username,
+		ServerCode:  svCode,
+		ServerName:  data.ServerName,
+		ChannelCode: chCode,
+		ChannelName: data.ChannelName,
+		IP:          data.IP,
+		Date:        time.Now(),
+		State:       1,
+		HWID:        data.DeviceId,
 	}
 
 	// INSERT ข้อมูลเข้า Database
@@ -363,7 +377,58 @@ func InsertDataMuLog(Body string) {
 	if err != nil {
 		log.Println("Insert Error:", err)
 	} else {
-		log.Println("Insert Successful!", newChar)
+		fmt.Println("Insert ConnectionHistory Successful!", newChar)
+
+		// ===== Update Online User to Redis =====
+		UpdateOnlineUserToRedis(chCode, data.Username)
+	}
+}
+
+func UpdateOnlineUserToRedis(channelCode int, username string) {
+	ctx := context.Background()
+
+	onlineSetKey := fmt.Sprintf("mu:channel:%d:online_users", channelCode)
+
+	// เพิ่ม Username เข้า Set
+	result, err := services.RedisClient.SAdd(ctx, onlineSetKey, username).Result()
+	if err != nil {
+		log.Println("❌ Redis SAdd Error:", err)
+	} else {
+		if result == 1 {
+			log.Printf("✅ Added %s to online users (Channel %d)", username, channelCode)
+		} else {
+			log.Printf("⚠️ %s is already in the online users set (Channel %d)", username, channelCode)
+		}
+	}
+
+	// นับจำนวน CurrentUser จริงจาก Set
+	count, err := services.RedisClient.SCard(ctx, onlineSetKey).Result()
+	if err != nil {
+		log.Println("❌ Redis SCard Error:", err)
+	} else {
+		fmt.Printf("📥 CurrentUser (Realtime) Channel: %d → %d Users", channelCode, count)
+	}
+
+	// ตั้ง Expire (Optional)
+	services.RedisClient.Expire(ctx, onlineSetKey, 10*time.Minute)
+}
+
+func RemoveOnlineUser(body string, username string) {
+
+	channelCode, _ := strconv.Atoi(body)
+	ctx := context.Background()
+	key := fmt.Sprintf("mu:channel:%d:online_users", channelCode)
+
+	result, err := services.RedisClient.SRem(ctx, key, username).Result()
+	if err != nil {
+		log.Printf("❌ Redis SRem Error (Channel %d, User %s): %v", channelCode, username, err)
+		return
+	}
+
+	if result == 1 {
+		log.Printf("✅ Removed user %s from channel %d online list", username, channelCode)
+	} else {
+		log.Printf("⚠️ User %s was not found in channel %d online list", username, channelCode)
 	}
 }
 
@@ -381,12 +446,14 @@ func GetAccountRequest(Body string, username string) {
 }
 
 type accountData struct {
-	Username   string `json:"username"`
-	ServerCode string `json:"serverCode"`
-	ServerName string `json:"serverName"`
-	IP         string `json:"ip"`
-	MAC        string `json:"mac"`
-	DeviceId   string `json:"deviceId"`
+	Username    string `json:"username"`
+	ServerCode  string `json:"serverCode"`
+	ServerName  string `json:"serverName"`
+	ChannelCode string `json:"ChannelCode"`
+	ChannelName string `json:"ChannelName"`
+	IP          string `json:"ip"`
+	MAC         string `json:"mac"`
+	DeviceId    string `json:"deviceId"`
 }
 
 func GetAccountRequestResult(Body string) bool {

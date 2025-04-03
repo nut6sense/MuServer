@@ -1,15 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"maxion-zone4/config"
 	"maxion-zone4/controllers"
 	"maxion-zone4/controllers/character"
+	"os"
+
 	"maxion-zone4/services"
 	"time"
 )
 
 func main() {
+	printChannelInfo()
+
 	loc, err := time.LoadLocation("Asia/Bangkok")
 	if err != nil {
 		log.Println("Error loading location:", err)
@@ -29,23 +34,23 @@ func main() {
 	// Load after dbgame connect
 	go character.ScheduleResetStamina()
 
-	// matching.StartMatchQueue([]matching.MatchRequest{
-	// 	{Character: "test", Rank: 100},
-	// 	{Character: "test1", Rank: 100},
-	// 	{Character: "test2", Rank: 100},
-	// 	{Character: "test3", Rank: 100},
-	// })
-	// go matching.StartMatchQueue("Ranking_51")
-	// time.Sleep(5 * time.Second)
-	// go matching.StartMatchQueue("Ranking_52")
-	// time.Sleep(5 * time.Second)
-	// go matching.StartMatchQueue("Ranking_53")
-	// time.Sleep(5 * time.Second)
-	// go matching.StartMatchQueue("Ranking_54")
-	// time.Sleep(5 * time.Second)
-	// go matching.StartMatchQueue("Ranking_55")
+	// go inventory_controller.StartInventory()
 
-	log.Println("Servers are running...")
+	fmt.Println("Servers are running...")
 
 	select {}
+}
+
+func printChannelInfo() {
+	name := os.Getenv("CHANNEL_NAME")
+	tcp := os.Getenv("TCP_PORT")
+	udp := os.Getenv("UDP_PORT")
+	port := os.Getenv("CHANNEL_PORT")
+
+	fmt.Println("================================")
+	fmt.Printf("🟢 %s is starting\n", name)
+	fmt.Printf("🔌 TCP_PORT: %s\n", tcp)
+	fmt.Printf("📡 UDP_PORT: %s\n", udp)
+	fmt.Printf("🎮 GAME_PORT: %s\n", port)
+	fmt.Println("================================")
 }

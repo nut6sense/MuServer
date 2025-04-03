@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"log"
 	"maxion-zone4/config"
@@ -45,13 +46,13 @@ func DecompressData(data []byte) (string, error) {
 
 // StartTCPServer เริ่มต้น TCP server
 func StartTCPServer() {
-	addr := config.AppConfig["TCP_PORT"] // why
+	addr := ":" + strings.TrimPrefix(config.AppConfig["TCP_PORT"], ":")
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatal("Error starting TCP server:", err)
 	}
 	defer listener.Close()
-	log.Println("TCP server listening on", addr)
+	fmt.Println("TCP server listening on", addr)
 
 	for {
 		conn, err := listener.Accept()
@@ -61,7 +62,7 @@ func StartTCPServer() {
 		}
 
 		clientAddr := conn.RemoteAddr().String()
-		log.Println("New TCP connection from:", clientAddr)
+		fmt.Println("New TCP connection from:", clientAddr)
 
 		tcpConn := conn.(*net.TCPConn)
 		tcpConn.SetReadBuffer(65536) // เพิ่ม Buffer 64 KB
@@ -91,7 +92,7 @@ func handleTCPConnection(conn net.Conn) {
 	}
 	encryptedMessage := string(buffer[:n])
 
-	log.Println("Received TCP data from", clientAddr, ":", encryptedMessage)
+	fmt.Println("Received TCP data from", clientAddr, ":", encryptedMessage)
 
 	// ตรวจสอบข้อความที่ได้รับว่าเป็น Base64 หรือไม่
 	if !IsBase64(encryptedMessage) {
@@ -106,7 +107,7 @@ func handleTCPConnection(conn net.Conn) {
 		return
 	}
 
-	log.Println("Decrypted message:", receivePacket)
+	fmt.Println("Decrypted message:", receivePacket)
 
 	message := strings.Split(receivePacket, "|")[1]
 	username := strings.Split(message, ",")[0]
@@ -125,7 +126,7 @@ func handleTCPConnection(conn net.Conn) {
 
 // StartUDPServer เริ่มต้น UDP server
 func StartUDPServer() {
-	addr := config.AppConfig["UDP_PORT"]
+	addr := ":" + strings.TrimPrefix(config.AppConfig["UDP_PORT"], ":")
 	udpAddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
 		log.Fatal("Error resolving UDP address:", err)
@@ -137,7 +138,7 @@ func StartUDPServer() {
 	}
 	config.ConnUDP = conn
 	defer conn.Close()
-	log.Println("UDP server listening on", addr)
+	fmt.Println("UDP server listening on", addr)
 
 	buffer := make([]byte, 1024)
 	for {
