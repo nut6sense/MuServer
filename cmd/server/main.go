@@ -6,6 +6,7 @@ import (
 	"maxion-zone4/config"
 	"maxion-zone4/controllers"
 	"maxion-zone4/controllers/character"
+	"maxion-zone4/models"
 	"os"
 
 	"maxion-zone4/services"
@@ -35,6 +36,20 @@ func main() {
 	go character.ScheduleResetStamina()
 
 	// go inventory_controller.StartInventory()
+
+	// ⬇️ โหลด TileMap เข้า Redis หลัง Redis พร้อม
+	if err := models.LoadTileMap(services.RedisClient); err != nil {
+		log.Println("Error loading tile map:", err)
+	}
+
+	// โหลด TileMap จาก Redis
+	services.LoadTileMapsFromRedis()
+
+	spawnData, _ := models.LoadMonsterSpawnFromXML("data/IGC_MonsterSpawn.xml")
+	services.SpawnMonstersFromSpawnData(spawnData)
+
+	services.PrintMonsterSummary()
+	services.ListMonstersInZone(0)
 
 	fmt.Println("Servers are running...")
 

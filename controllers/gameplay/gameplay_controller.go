@@ -9,6 +9,7 @@ import (
 	"maxion-zone4/utils"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // สร้างห้องใหม่
@@ -263,4 +264,17 @@ func LeaveRoom(body string, character *models.CharacterInfo) {
 			return
 		}
 	}
+}
+
+var monsters []*models.Monster
+
+func StartMonsterLoop() {
+	go func() {
+		for {
+			for _, m := range monsters {
+				m.MoveStep()
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
 }
