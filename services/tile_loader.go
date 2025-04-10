@@ -20,6 +20,7 @@ var (
 // LoadTileMapsFromRedis โหลดแผนที่ทุก zone ที่ต้องใช้จาก Redis เข้าหน่วยความจำ
 func LoadTileMapsFromRedis() error {
 	ctx := context.Background()
+
 	tileMapDataMutex.Lock()
 	TileMapData = make(map[int][][]models.Tile)
 	tileMapDataMutex.Unlock()
@@ -29,6 +30,9 @@ func LoadTileMapsFromRedis() error {
 	if err != nil {
 		return fmt.Errorf("failed to read map directory: %w", err)
 	}
+
+	var wg sync.WaitGroup
+	mapLoadChan := make(chan struct{}, 10) // จำกัดโหลดพร้อมกันไม่เกิน 10
 
 	for _, file := range files {
 		if file.IsDir() || !strings.HasSuffix(file.Name(), ".att") {
@@ -41,18 +45,28 @@ func LoadTileMapsFromRedis() error {
 			continue
 		}
 
-		tileMap, err := models.LoadTileMapFromRedis(RedisClient, ctx, zoneID)
-		if err != nil {
-			fmt.Println("Failed to load zone", zoneID, err)
-			continue
-		}
+		wg.Add(1)
+		go func(zid int) {
+			defer wg.Done()
+			mapLoadChan <- struct{}{} // บล็อคถ้าเกิน 10
 
-		tileMapDataMutex.Lock()
-		TileMapData[zoneID] = tileMap
-		tileMapDataMutex.Unlock()
+			tileMap, err := models.LoadTileMapFromRedis(RedisClient, ctx, zid)
+			if err != nil {
+				fmt.Println("❌ Failed to load zone", zid, err)
+				<-mapLoadChan
+				return
+			}
 
-		fmt.Println("✅ Loaded TileMap for zone", zoneID)
+			tileMapDataMutex.Lock()
+			TileMapData[zid] = tileMap
+			tileMapDataMutex.Unlock()
+
+			fmt.Println("✅ Loaded TileMap for zone", zid)
+			<-mapLoadChan
+		}(zoneID)
 	}
+
+	wg.Wait()
 	return nil
 }
 
