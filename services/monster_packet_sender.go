@@ -8,6 +8,11 @@ import (
 )
 
 func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.MonsterTemplate) {
+	if template == nil {
+		fmt.Println("❌ Broadcast failed: template is nil for monster ID", m.ID, "Index", m.Index)
+		return
+	}
+
 	packet := struct {
 		Type    string                     `json:"type"`
 		Payload models.MonsterCreatePacket `json:"payload"`

@@ -45,6 +45,10 @@ func main() {
 	// โหลด TileMap จาก Redis
 	services.LoadTileMapsFromRedis()
 
+	if err := services.LoadAllMonsterTemplates(); err != nil {
+		log.Fatal("Failed to load monster templates:", err)
+	}
+
 	spawnData, _ := models.LoadMonsterSpawnFromXML("data/IGC_MonsterSpawn.xml")
 	services.SpawnMonstersFromSpawnData(spawnData)
 

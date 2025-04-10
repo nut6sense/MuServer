@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/xml"
+	"fmt"
 	"os"
 )
 
@@ -35,6 +36,7 @@ type MonsterSpawnConfig struct {
 func LoadMonsterSpawnFromXML(path string) ([]MonsterSpawnMapXML, error) {
 	file, err := os.Open(path)
 	if err != nil {
+		fmt.Printf("❌ Failed to open spawn XML file: %s → %v\n", path, err)
 		return nil, err
 	}
 	defer file.Close()
@@ -42,7 +44,10 @@ func LoadMonsterSpawnFromXML(path string) ([]MonsterSpawnMapXML, error) {
 	var config MonsterSpawnConfig
 	err = xml.NewDecoder(file).Decode(&config)
 	if err != nil {
+		fmt.Printf("❌ Failed to decode XML (%s): %v\n", path, err)
 		return nil, err
 	}
+
+	fmt.Printf("✅ Loaded %d monster spawn zones from %s\n", len(config.Maps), path)
 	return config.Maps, nil
 }

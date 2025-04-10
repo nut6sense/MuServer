@@ -1,8 +1,10 @@
 package services
 
 import (
+	"encoding/xml"
 	"fmt"
 	"maxion-zone4/models"
+	"os"
 	"sync"
 )
 
@@ -44,4 +46,28 @@ func ListMonstersInZone(zone int) {
 		fmt.Printf("ID: %s  Name: %-20s Pos: (%d,%d)  Target: (%d,%d)  Alive: %v\n",
 			m.ID, name, m.Pos.X, m.Pos.Y, m.Target.X, m.Target.Y, m.Alive)
 	}
+}
+
+// LoadAllMonsterTemplates loads all monster templates from XML file into memory
+func LoadAllMonsterTemplates() error {
+	file, err := os.Open("data/IGC_MonsterList.xml")
+	if err != nil {
+		return fmt.Errorf("❌ Failed to open MonsterList: %w", err)
+	}
+	defer file.Close()
+
+	var xmlData struct {
+		Monsters []models.MonsterTemplate `xml:"Monster"`
+	}
+
+	if err := xml.NewDecoder(file).Decode(&xmlData); err != nil {
+		return fmt.Errorf("❌ Failed to parse MonsterList: %w", err)
+	}
+
+	for _, m := range xmlData.Monsters {
+		MonsterTemplates[m.Index] = &m
+	}
+
+	fmt.Println("✅ Loaded", len(MonsterTemplates), "monster templates.")
+	return nil
 }

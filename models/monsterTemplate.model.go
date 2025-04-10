@@ -28,6 +28,7 @@ type MonsterTemplate struct {
 	ItemDropRate  int    `xml:"ItemDropRate,attr"`
 	MoneyDropRate int    `xml:"MoneyDropRate,attr"`
 	MaxItemLevel  int    `xml:"MaxItemLevel,attr"`
+	IndexStr      string `xml:"IndexStr,attr"`
 }
 
 type monsterListXML struct {

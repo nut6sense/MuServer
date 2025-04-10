@@ -644,7 +644,7 @@ func CharacterSelect(body string, username string) {
 	log.Println("characterName:", characterName, accountID)
 
 	var data databaseModel.Character
-	result := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Life, MaxLife, Mana, MaxMana, Inventory").Where("Name = ?", characterName).First(&data)
+	result := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Life, MaxLife, Mana, MaxMana, Inventory, MapNumber").Where("Name = ?", characterName).First(&data)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			log.Println("Character not found", characterName)
@@ -657,6 +657,7 @@ func CharacterSelect(body string, username string) {
 	}
 
 	items := SendInventoryToClient(data.Inventory)
+	zoneID := data.MapNumber
 
 	// สร้างโครงสร้าง JSON
 	response := map[string]interface{}{
@@ -683,6 +684,11 @@ func CharacterSelect(body string, username string) {
 	//fmt.Printf("items: %s", items)
 
 	services.SendTCPUser(message.USER_MESSAGE_SET_SELECT_CHARACTER, string(responseJSON), username)
+
+	// ส่งมอนสเตอร์ทั้งหมดใน zone ไปยัง client หลังเลือกตัวละครสำเร็จ
+	services.SendAllMonstersToPlayer(int(zoneID), func(data []byte) {
+		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(data), username)
+	})
 
 	log.Println("Player: ", accountID)
 	log.Println("Selected Character: ", characterName)
