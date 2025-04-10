@@ -149,5 +149,7 @@ func SendUDP(header int, body string) error {
 		log.Println("Error sending UDP data:", err)
 		return err
 	}
+
+	log.Println("config.Addr:", config.Addr)
 	return nil
 }

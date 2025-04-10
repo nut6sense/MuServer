@@ -27,7 +27,7 @@ func AddMonster(zone int, m *models.Monster) {
 func PrintMonsterSummary() {
 	MonsterManager.mu.RLock()
 	defer MonsterManager.mu.RUnlock()
-	fmt.Println("=== Monster Summary ===")
+	fmt.Println("=== Monster Summary ===", len(MonsterManager.monsters))
 	for zone, list := range MonsterManager.monsters {
 		fmt.Printf("Zone %d → %d monsters\n", zone, len(list))
 	}
