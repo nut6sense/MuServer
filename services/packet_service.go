@@ -62,6 +62,8 @@ func SendTCPClient(conn net.Conn, header int, body string) error {
 		return fmt.Errorf("error encrypting message: %v", err)
 	}
 
+	encryptedMessage += "\n"
+
 	totalBytes := len(encryptedMessage)
 
 	// Prepare the complete message (header + encrypted body)
@@ -78,7 +80,7 @@ func SendTCPClient(conn net.Conn, header int, body string) error {
 		return fmt.Errorf("incomplete write: %d/%d bytes", bytesWritten, len(completeMessage))
 	}
 
-	fmt.Printf("Message successfully sent (total bytes: %d)", len(completeMessage))
+	fmt.Printf("Message successfully sent (total bytes: %d) :", len(completeMessage))
 	return nil
 }
 
