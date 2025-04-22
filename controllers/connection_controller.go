@@ -166,6 +166,6 @@ func StartUDPServer() {
 		}
 
 		// Process the packet
-		packet.ProcessUDP(decryptedMessage)
+		packet.ProcessUDP(decryptedMessage, clientAddr)
 	}
 }

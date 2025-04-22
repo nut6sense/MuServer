@@ -72,7 +72,13 @@ func LoginUser(Body string, username string) {
 func LoginUserUDP(Body string) {
 	fmt.Print("Login User UDP: ", Body)
 
-	services.SendUDP(message.USER_MESSAGE_900, "Login Success UDP KRUB")
+	services.SendUDP(message.USER_MESSAGE_REGISTER_USER_RETURN, Body)
+}
+
+func MoveUserUDP(Body string) {
+	fmt.Print("Move User UDP: ", Body)
+
+	services.SendUDP(message.USER_MESSAGE_SET_USER_MOVE_RETURN, Body)
 }
 
 // Sending Data to TCP
