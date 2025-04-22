@@ -66,7 +66,9 @@ func (t Tile) Pos() Vec2 {
 
 func ByteToTileType(b byte) Tile {
 	tileType := TileType(b)
-	walkable := tileType == Walk || tileType == Safe
+	// walkable := tileType == Walk || tileType == Safe
+	walkable := tileType == Walk
+
 	return Tile{
 		Type:     tileType,
 		Walkable: walkable,
