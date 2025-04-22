@@ -66,3 +66,17 @@ func BroadcastToZone(zoneID int, data []byte) {
 		}
 	}
 }
+
+func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
+	movePacket := map[string]interface{}{
+		"type": "MONSTER_MOVE",
+		"payload": map[string]interface{}{
+			"monsterId": m.ID,
+			"x":         m.Pos.X,
+			"y":         m.Pos.Y,
+			"direction": 0, // หรือใส่จริงถ้ามีระบบทิศ
+		},
+	}
+	data, _ := json.Marshal(movePacket)
+	BroadcastToZone(zoneID, data)
+}

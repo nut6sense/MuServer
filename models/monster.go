@@ -20,7 +20,7 @@ type Vec2 struct {
 }
 
 type Monster struct {
-	ID     string
+	ID     int
 	Index  int
 	Pos    Vec2
 	Target Vec2
@@ -303,7 +303,7 @@ func LoadTileMapFromRedis(rdb *redis.Client, ctx context.Context, zone int) ([][
 }
 
 type MonsterCreatePacket struct {
-	MonsterId          string `json:"monsterId"` // รหัสมอนสเตอร์ runtime
+	MonsterId          int    `json:"monsterId"` // รหัสมอนสเตอร์ runtime
 	Type               int    `json:"type"`      // Monster Index จาก Template
 	X                  byte   `json:"x"`
 	Y                  byte   `json:"y"`
@@ -317,12 +317,12 @@ type MonsterCreatePacket struct {
 	Name               string `json:"name"`
 }
 
-var nextMonsterID int = 1000
+var nextMonsterID int = 10000
 
 // generateUniqueMonsterID ใช้สร้าง ID ใหม่ให้มอนสเตอร์ทุกตัวแบบไม่ซ้ำ
-func generateUniqueMonsterID() string {
+func generateUniqueMonsterID() int {
 	nextMonsterID++
-	return fmt.Sprintf("m%d", nextMonsterID)
+	return nextMonsterID
 }
 
 func NewMonster(pos Vec2, target Vec2) *Monster {

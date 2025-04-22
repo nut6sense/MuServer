@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -644,7 +645,7 @@ func CharacterSelect(body string, username string) {
 	log.Println("characterName:", characterName, accountID)
 
 	var data databaseModel.Character
-	result := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Life, MaxLife, Mana, MaxMana, Inventory, MapNumber").Where("Name = ?", characterName).First(&data)
+	result := services.GameDB.Table("Character").Select("AccountID, Name, cLevel, Class, Life, MaxLife, Mana, MaxMana, Inventory, MapNumber, MapPosX, MapPosY").Where("Name = ?", characterName).First(&data)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			log.Println("Character not found", characterName)
@@ -689,6 +690,22 @@ func CharacterSelect(body string, username string) {
 	services.SendAllMonstersToPlayer(int(zoneID), func(data []byte) {
 		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(data), username)
 	})
+
+	// ลงทะเบียนเมื่อ Player login เข้ามา
+	player := &services.Player{
+		ID:          uuid.New().String(),
+		Name:        characterName,
+		ZoneID:      int(zoneID),
+		Pos:         models.Vec2{X: int(data.MapPosX), Y: int(data.MapPosY)},
+		CurrentLife: int(data.Life),
+		MaxLife:     int(data.MaxLife),
+		Send: func(data []byte) {
+			services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_MOVE, string(data), username)
+		},
+	}
+	services.PlayerManager.Players[player.ID] = player
+	jsonPlayer, _ := json.MarshalIndent(player, "", "  ")
+	fmt.Println("Player Login (json):", string(jsonPlayer))
 
 	log.Println("Player: ", accountID)
 	log.Println("Selected Character: ", characterName)
