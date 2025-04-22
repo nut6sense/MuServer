@@ -54,6 +54,7 @@ func main() {
 
 	services.PrintMonsterSummary()
 	services.ListMonstersInZone(0)
+	services.StartMonsterAI()
 
 	fmt.Println("Servers are running...")
 

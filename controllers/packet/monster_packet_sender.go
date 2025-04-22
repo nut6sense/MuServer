@@ -9,9 +9,9 @@ import (
 )
 
 type MonsterPosition struct {
-	ID string `json:"id"`
-	X  int    `json:"x"`
-	Y  int    `json:"y"`
+	ID int `json:"id"`
+	X  int `json:"x"`
+	Y  int `json:"y"`
 }
 
 type Packet struct {

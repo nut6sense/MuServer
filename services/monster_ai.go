@@ -1,0 +1,144 @@
+package services
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"math/rand"
+	"maxion-zone4/models"
+	"time"
+)
+
+// เริ่มระบบ AI สำหรับ Monster เดิน, ไล่ผู้เล่น, โจมตี, และส่ง Packet
+func StartMonsterAI() {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	go func() {
+		for range ticker.C {
+			for zoneID, monsters := range MonsterManager.monsters {
+				tileMap := TileMapData[zoneID]
+				players := GetPlayersInZone(zoneID) // ดึงผู้เล่นในโซนเดียวกัน
+
+				for _, m := range monsters {
+					if !m.Alive {
+						continue
+					}
+
+					nearest := findNearestPlayer(m, players)
+
+					// ถ้าอยู่ใกล้มากพอ → โจมตีเลย
+					if nearest != nil && distance(m.Pos, nearest.Pos) <= 1 {
+						simulateAttack(m, nearest)
+						continue
+					}
+
+					// ถ้าเจอเป้าหมาย → เดินตาม
+					if nearest != nil {
+						m.Target = nearest.Pos
+						m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+					} else if len(m.Path) == 0 {
+						// ถ้าไม่มีเป้าหมาย → เดินสุ่ม
+						tx, ty := getRandomWalkable(tileMap)
+						m.Target = models.Vec2{X: tx, Y: ty}
+						m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+					}
+
+					// ถ้ามี path → เดิน 1 ก้าว
+					if len(m.Path) > 0 {
+						m.MoveStep()
+						BroadcastMonsterMoveToZone(zoneID, m)
+						log.Println("📡 MONSTER_MOVE → zone", zoneID, "→", m.ID, "→", m.Pos.X, m.Pos.Y)
+					}
+				}
+			}
+		}
+	}()
+}
+
+// สุ่มตำแหน่งที่สามารถเดินได้ในแผนที่
+func getRandomWalkable(tileMap [][]models.Tile) (int, int) {
+	for i := 0; i < 100; i++ {
+		x := rand.Intn(256)
+		y := rand.Intn(256)
+		if tileMap[y][x].Walkable {
+			return x, y
+		}
+	}
+	return 100, 100
+}
+
+// คำนวณระยะห่างแบบ Manhattan
+func distance(a, b models.Vec2) int {
+	dx := a.X - b.X
+	dy := a.Y - b.Y
+	if dx < 0 {
+		dx = -dx
+	}
+	if dy < 0 {
+		dy = -dy
+	}
+	return dx + dy
+}
+
+// หาผู้เล่นที่อยู่ใกล้มอนสเตอร์ที่สุด
+func findNearestPlayer(m *models.Monster, players []*Player) *Player {
+	var nearest *Player
+	minDist := 999
+	for _, p := range players {
+		d := distance(m.Pos, p.Pos)
+		if d < minDist {
+			minDist = d
+			nearest = p
+		}
+	}
+	return nearest
+}
+
+// โจมตีผู้เล่น → ลด HP → ส่ง Packet → ถ้าตายให้ broadcast
+func simulateAttack(m *models.Monster, target *Player) {
+	if target.CurrentLife <= 0 {
+		return
+	}
+
+	damage := rand.Intn(50) + 10
+	target.CurrentLife -= damage
+	if target.CurrentLife < 0 {
+		target.CurrentLife = 0
+	}
+
+	fmt.Printf("💢 Monster %s โจมตี Player %s → %d dmg (HP: %d)\n", m.ID, target.Name, damage, target.CurrentLife)
+
+	attackPacket := map[string]interface{}{
+		"type": "MONSTER_ATTACK",
+		"payload": map[string]interface{}{
+			"monsterId": m.ID,
+			"targetId":  target.ID,
+			"damage":    damage,
+			"life":      target.CurrentLife,
+		},
+	}
+
+	if data, err := json.Marshal(attackPacket); err == nil {
+		target.Send(data)
+		log.Println("📡 MONSTER_ATTACK →", target.Name, "→", damage, "dmg")
+	}
+
+	if target.CurrentLife == 0 {
+		broadcastPlayerDeath(target)
+	}
+}
+
+// แจ้งว่าผู้เล่นตายแล้ว
+func broadcastPlayerDeath(p *Player) {
+	deathPacket := map[string]interface{}{
+		"type": "PLAYER_DIE",
+		"payload": map[string]interface{}{
+			"playerId": p.ID,
+			"name":     p.Name,
+		},
+	}
+
+	if data, err := json.Marshal(deathPacket); err == nil {
+		BroadcastToZone(p.ZoneID, data)
+		log.Println("📡 PLAYER_DIE → zone", p.ZoneID, ":", p.Name)
+	}
+}
