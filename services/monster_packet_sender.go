@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maxion-zone4/models"
+	"maxion-zone4/models/message"
 	"sync"
 )
 
@@ -62,21 +63,45 @@ func BroadcastToZone(zoneID int, data []byte) {
 
 	for _, player := range ConnectedPlayers.players {
 		if player.ZoneID == zoneID {
-			player.Send(data)
+			SafeSend(player, data)
 		}
 	}
 }
 
 func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
-	movePacket := map[string]interface{}{
-		"type": "MONSTER_MOVE",
-		"payload": map[string]interface{}{
-			"monsterId": m.ID,
-			"x":         m.Pos.X,
-			"y":         m.Pos.Y,
-			"direction": 0, // หรือใส่จริงถ้ามีระบบทิศ
-		},
+
+	for _, player := range GetPlayersInZone(zoneID) {
+		SendMonsterPositionsToPlayer(player, []*models.Monster{m})
 	}
-	data, _ := json.Marshal(movePacket)
-	BroadcastToZone(zoneID, data)
+
+	fmt.Printf("Broadcasting to %d players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
 }
+
+func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {
+	var list []map[string]interface{}
+	for _, m := range monsters {
+		list = append(list, map[string]interface{}{
+			"id": m.ID,
+			"x":  m.Pos.X,
+			"y":  m.Pos.Y,
+		})
+	}
+	data, _ := json.Marshal(list)
+
+	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, data)
+}
+
+// func SendMonsterCreate(player *services.Player, m *models.Monster, template *models.MonsterTemplate) {
+// 	data, _ := json.Marshal(map[string]interface{}{
+// 		"monsterId":   m.ID,
+// 		"type":        m.Index,
+// 		"x":           m.Pos.X,
+// 		"y":           m.Pos.Y,
+// 		"level":       template.Level,
+// 		"name":        template.Name,
+// 		"maxLife":     template.MaxLife,
+// 		"currentLife": template.MaxLife,
+// 	})
+
+// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_CREATE, data)
+// }

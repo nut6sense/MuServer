@@ -121,6 +121,14 @@ func SendTCPUser(header int, body string, username string) error {
 	err := SendTCPClient(conn, header, body)
 	if err != nil {
 		log.Printf("Error sending message to %s: %v\n", username, err)
+
+		// ⛔ ลบออกจาก ConnectedPlayers ถ้า player ใช้ TCP แบบ PlayerConn
+		ConnectedPlayers.Lock()
+		delete(ConnectedPlayers.players, username) // ใช้ username เป็น key ถ้า match
+		ConnectedPlayers.Unlock()
+
+		log.Printf("🗑️ Removed player %s from ConnectedPlayers due to broken TCP\n", username)
+
 	}
 
 	return err

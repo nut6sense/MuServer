@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -684,28 +683,15 @@ func CharacterSelect(body string, username string) {
 
 	//fmt.Printf("items: %s", items)
 
-	services.SendTCPUser(message.USER_MESSAGE_SET_SELECT_CHARACTER, string(responseJSON), username)
-
 	// ส่งมอนสเตอร์ทั้งหมดใน zone ไปยัง client หลังเลือกตัวละครสำเร็จ
-	services.SendAllMonstersToPlayer(int(zoneID), func(data []byte) {
-		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(data), username)
+	services.SendAllMonstersToPlayer(int(zoneID), func(dataResponse []byte) {
+		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(dataResponse), username)
 	})
 
 	// ลงทะเบียนเมื่อ Player login เข้ามา
-	player := &services.Player{
-		ID:          uuid.New().String(),
-		Name:        characterName,
-		ZoneID:      int(zoneID),
-		Pos:         models.Vec2{X: int(data.MapPosX), Y: int(data.MapPosY)},
-		CurrentLife: int(data.Life),
-		MaxLife:     int(data.MaxLife),
-		Send: func(data []byte) {
-			services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_MOVE, string(data), username)
-		},
-	}
-	services.PlayerManager.Players[player.ID] = player
-	jsonPlayer, _ := json.MarshalIndent(player, "", "  ")
-	fmt.Println("Player Login (json):", string(jsonPlayer))
+	services.PlayerRegis(accountID, characterName, int(zoneID), data)
+
+	services.SendTCPUser(message.USER_MESSAGE_SET_SELECT_CHARACTER, string(responseJSON), username)
 
 	log.Println("Player: ", accountID)
 	log.Println("Selected Character: ", characterName)

@@ -118,7 +118,7 @@ func simulateAttack(m *models.Monster, target *Player) {
 	}
 
 	if data, err := json.Marshal(attackPacket); err == nil {
-		target.Send(data)
+		SafeSend(target, data)
 		log.Println("📡 MONSTER_ATTACK →", target.Name, "→", damage, "dmg")
 	}
 
