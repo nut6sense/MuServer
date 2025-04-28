@@ -71,25 +71,35 @@ func BroadcastToZone(zoneID int, data []byte) {
 func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
 	for _, player := range GetPlayersInZone(zoneID) {
-		SendMonsterPositionsToPlayer(player, []*models.Monster{m})
+		SendMonsterMoveToPlayer(player, m)
 	}
 
 	fmt.Printf("Broadcasting to %d players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
 }
 
-func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {
-	var list []map[string]interface{}
-	for _, m := range monsters {
-		list = append(list, map[string]interface{}{
-			"id": m.ID,
-			"x":  m.Pos.X,
-			"y":  m.Pos.Y,
-		})
+func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
+	data := map[string]interface{}{
+		"monsterId": m.ID,
+		"x":         m.Pos.X,
+		"y":         m.Pos.Y,
 	}
-	data, _ := json.Marshal(list)
-
-	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, data)
+	jsonData, _ := json.Marshal(data)
+	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
 }
+
+// func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {
+// 	var list []map[string]interface{}
+// 	for _, m := range monsters {
+// 		list = append(list, map[string]interface{}{
+// 			"id": m.ID,
+// 			"x":  m.Pos.X,
+// 			"y":  m.Pos.Y,
+// 		})
+// 	}
+// 	data, _ := json.Marshal(list)
+
+// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, data)
+// }
 
 // func SendMonsterCreate(player *services.Player, m *models.Monster, template *models.MonsterTemplate) {
 // 	data, _ := json.Marshal(map[string]interface{}{

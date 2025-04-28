@@ -6,21 +6,18 @@ import (
 	"maxion-zone4/models"
 	databaseModel "maxion-zone4/models/database"
 	"maxion-zone4/models/message"
-	"net"
-
-	"github.com/google/uuid"
+	"maxion-zone4/utils"
 )
 
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
 type Player struct {
-	ID          string // ID เฉพาะ session นี้
-	Conn        net.Conn
+	ID          string       // ID เฉพาะ session นี้
 	Name        string       // ชื่อตัวละคร
 	ZoneID      int          // โซนปัจจุบัน / แผนที่
 	Pos         models.Vec2  // ตำแหน่งในแผนที่
 	CurrentLife int          // HP ปัจจุบัน
 	MaxLife     int          // HP สูงสุด
-	Send        func([]byte) // ฟังก์ชันส่งข้อมูลกลับ client
+	Send        func([]byte) `json:"-"` // ฟังก์ชันส่งข้อมูลกลับ client
 }
 
 // PlayerManager เก็บผู้เล่นทั้งหมดที่ออนไลน์ในขณะนี้
@@ -84,14 +81,18 @@ func SafeSend(p Sendable, data []byte) {
 func PlayerRegis(username string, characterName string, zoneID int, data databaseModel.Character) {
 	// ลงทะเบียนเมื่อ Player login เข้ามา
 	player := &Player{
-		ID:          uuid.New().String(),
+		ID:          username,
 		Name:        characterName,
 		ZoneID:      int(zoneID),
 		Pos:         models.Vec2{X: int(data.MapPosX), Y: int(data.MapPosY)},
 		CurrentLife: int(data.Life),
 		MaxLife:     int(data.MaxLife),
 		Send: func(data []byte) {
-			SendTCPUser(message.SERVER_MESSAGE_MONSTER_MOVE, string(data), username)
+			err := SendTCPUser(message.SERVER_MESSAGE_MONSTER_MOVE, string(data), username)
+			if err != nil {
+				fmt.Printf("❌ MONSTER_MOVE error to %s: %v\n", username, err)
+				delete(utils.Accounts, username) // ลบ conn ที่ตาย
+			}
 		},
 	}
 	PlayerManager.Players[player.ID] = player

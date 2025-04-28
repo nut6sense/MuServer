@@ -670,6 +670,9 @@ func CharacterSelect(body string, username string) {
 		"Mana":      data.Mana,
 		"MaxMana":   data.MaxMana,
 		"Items":     json.RawMessage(items), // JSON Inventory
+		"MapNumber": data.MapNumber,
+		"MapPosX":   data.MapPosX,
+		"MapPosY":   data.MapPosY,
 	}
 
 	// แปลงเป็น JSON String
