@@ -638,8 +638,8 @@ func CharacterSelect(body string, username string) {
 		return
 	}
 
-	characterName := parts[1] // ดึงค่าชื่อตัวละคร
-	accountID := parts[2]     // แปลง string -> int
+	characterName := parts[2] // ดึงค่าชื่อตัวละคร
+	accountID := parts[0]     // แปลง string -> int
 
 	log.Println("characterName:", characterName, accountID)
 
