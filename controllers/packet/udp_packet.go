@@ -21,6 +21,7 @@ var udpPacketHandlers = map[int]func(string){
 	message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
 	message.USER_MESSAGE_GET_USER_MOVE:        user_controller.MoveUserUDP,
 	message.USER_MESSAGE_REGISTER_USER:        user_controller.LoginUserUDP,
+	message.SERVER_MESSAGE_MONSTER_MOVE:       user_controller.MoveMonsterUDP,
 }
 
 type UDPClient struct {

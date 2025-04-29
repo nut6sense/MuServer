@@ -88,7 +88,7 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 		CurrentLife: int(data.Life),
 		MaxLife:     int(data.MaxLife),
 		Send: func(data []byte) {
-			err := SendTCPUser(message.SERVER_MESSAGE_MONSTER_MOVE, string(data), username)
+			err := SendUDP(message.SERVER_MESSAGE_MONSTER_MOVE, string(data))
 			if err != nil {
 				fmt.Printf("❌ MONSTER_MOVE error to %s: %v\n", username, err)
 				delete(utils.Accounts, username) // ลบ conn ที่ตาย

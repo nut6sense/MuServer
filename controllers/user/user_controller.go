@@ -81,6 +81,12 @@ func MoveUserUDP(Body string) {
 	services.SendUDP(message.USER_MESSAGE_SET_USER_MOVE_RETURN, Body)
 }
 
+func MoveMonsterUDP(Body string) {
+	fmt.Print("Move Monster UDP: ", Body)
+
+	services.SendUDP(message.SERVER_MESSAGE_MONSTER_MOVE, Body)
+}
+
 // Sending Data to TCP
 func GetMsRankTCP(Body string, character *models.CharacterInfo) {
 	//Logic for find new rank is here (Body string --> PlayerRankStar(int))
