@@ -82,7 +82,7 @@ func distance(a, b models.Vec2) int {
 // หาผู้เล่นที่อยู่ใกล้มอนสเตอร์ที่สุด
 func findNearestPlayer(m *models.Monster, players []*Player) *Player {
 	var nearest *Player
-	minDist := 999
+	minDist := 8
 	for _, p := range players {
 		d := distance(m.Pos, p.Pos)
 		if d < minDist {
