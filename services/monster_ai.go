@@ -32,21 +32,34 @@ func StartMonsterAI() {
 					}
 
 					// ถ้าเจอเป้าหมาย → เดินตาม
-					if nearest != nil {
-						m.Target = nearest.Pos
-						m.Path = models.FindPath(m.Pos, m.Target, tileMap)
-					} else if len(m.Path) == 0 {
-						// ถ้าไม่มีเป้าหมาย → เดินสุ่ม
-						tx, ty := getRandomWalkable(tileMap)
-						m.Target = models.Vec2{X: tx, Y: ty}
-						m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+					// if nearest != nil {
+					// 	m.Target = nearest.Pos
+					// 	m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+					// } else if len(m.Path) == 0 {
+					// ถ้าไม่มีเป้าหมาย → เดินสุ่ม
+					tx, ty := getRandomWalkable(tileMap)
+					m.Target = models.Vec2{X: tx, Y: ty}
+					m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+					//}
+
+					const sightRange = 20
+
+					// เช็คว่ามี Player ที่อยู่ใกล้ monster ตัวนี้
+					hasNearbyPlayer := false
+					for _, p := range players {
+						if distance(m.Pos, p.Pos) <= sightRange {
+							hasNearbyPlayer = true
+							break
+						}
 					}
 
 					// ถ้ามี path → เดิน 1 ก้าว
 					if len(m.Path) > 0 {
 						m.MoveStep()
-						BroadcastMonsterMoveToZone(zoneID, m)
-						log.Println("📡 MONSTER_MOVE → zone", zoneID, "→", m.ID, "→", m.Pos.X, m.Pos.Y)
+						if hasNearbyPlayer {
+							BroadcastMonsterMoveToZone(zoneID, m)
+							log.Println("📡 MONSTER_MOVE → zone", zoneID, "→", m.ID, "→", m.Pos.X, m.Pos.Y)
+						}
 					}
 				}
 			}
@@ -82,7 +95,7 @@ func distance(a, b models.Vec2) int {
 // หาผู้เล่นที่อยู่ใกล้มอนสเตอร์ที่สุด
 func findNearestPlayer(m *models.Monster, players []*Player) *Player {
 	var nearest *Player
-	minDist := 999
+	minDist := 8
 	for _, p := range players {
 		d := distance(m.Pos, p.Pos)
 		if d < minDist {
