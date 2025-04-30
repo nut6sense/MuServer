@@ -6,7 +6,6 @@ import (
 	"maxion-zone4/models"
 	databaseModel "maxion-zone4/models/database"
 	"maxion-zone4/models/message"
-	"maxion-zone4/utils"
 )
 
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
@@ -91,7 +90,7 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 			err := SendUDP(message.SERVER_MESSAGE_MONSTER_MOVE, string(data))
 			if err != nil {
 				fmt.Printf("❌ MONSTER_MOVE error to %s: %v\n", username, err)
-				delete(utils.Accounts, username) // ลบ conn ที่ตาย
+				// delete(utils.Accounts, username) // ลบ conn ที่ตาย
 			}
 		},
 	}
