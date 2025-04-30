@@ -23,12 +23,33 @@ func StartMonsterAI() {
 						continue
 					}
 
-					nearest := findNearestPlayer(m, players)
+					template := MonsterTemplates[m.Index]
+					if template == nil {
+						continue // ถ้าไม่มี template ไม่ทำอะไร
+					}
 
-					// ถ้าอยู่ใกล้มากพอ → โจมตีเลย
-					if nearest != nil && distance(m.Pos, nearest.Pos) <= 1 {
-						simulateAttack(m, nearest)
-						continue
+					nearest := findNearestPlayer(m, players)
+					if nearest != nil {
+						// เช็คว่ามองเห็น Player ไหม
+						if distance(m.Pos, nearest.Pos) <= template.ViewRange {
+							m.Target = nearest.Pos
+
+							// ถ้าอยู่ใน AttackRange แล้ว → ไม่ต้องเดิน
+							if distance(m.Pos, nearest.Pos) <= template.AttackRange {
+								simulateAttack(m, nearest)
+								continue
+							}
+
+							// ถ้าไกลเกิน AttackRange → เดินเข้าไป
+							if len(m.Path) == 0 {
+								m.Path = models.FindPath(m.Pos, m.Target, tileMap)
+							}
+						}
+					} else if len(m.Path) == 0 {
+						// เดินสุ่มใน MoveRange
+						tx, ty := getRandomWalkableWithinRange(tileMap, m.SpawnPos, template.MoveRange)
+						m.Target = models.Vec2{X: tx, Y: ty}
+						m.Path = models.FindPath(m.Pos, m.Target, tileMap)
 					}
 
 					// ถ้าเจอเป้าหมาย → เดินตาม
@@ -94,13 +115,20 @@ func distance(a, b models.Vec2) int {
 
 // หาผู้เล่นที่อยู่ใกล้มอนสเตอร์ที่สุด
 func findNearestPlayer(m *models.Monster, players []*Player) *Player {
+	template := MonsterTemplates[m.Index]
+	if template == nil {
+		return nil // ป้องกันไม่ให้ nil panic
+	}
+
 	var nearest *Player
-	minDist := 8
+	viewRange := template.ViewRange
+
 	for _, p := range players {
 		d := distance(m.Pos, p.Pos)
-		if d < minDist {
-			minDist = d
-			nearest = p
+		if d <= viewRange {
+			if nearest == nil || d < distance(m.Pos, nearest.Pos) {
+				nearest = p
+			}
 		}
 	}
 	return nearest
@@ -118,11 +146,11 @@ func simulateAttack(m *models.Monster, target *Player) {
 		target.CurrentLife = 0
 	}
 
-	fmt.Printf("💢 Monster %s โจมตี Player %s → %d dmg (HP: %d)\n", m.ID, target.Name, damage, target.CurrentLife)
+	fmt.Printf("💢 Monster %d โจมตี Player %s → %d dmg (HP: %d)\n", m.ID, target.Name, damage, target.CurrentLife)
 
-	attackPacket := map[string]interface{}{
+	attackPacket := map[string]any{
 		"type": "MONSTER_ATTACK",
-		"payload": map[string]interface{}{
+		"payload": map[string]any{
 			"monsterId": m.ID,
 			"targetId":  target.ID,
 			"damage":    damage,
@@ -154,4 +182,22 @@ func broadcastPlayerDeath(p *Player) {
 		BroadcastToZone(p.ZoneID, data)
 		log.Println("📡 PLAYER_DIE → zone", p.ZoneID, ":", p.Name)
 	}
+}
+
+// สุ่มเดินในระยะ MoveRange
+func getRandomWalkableWithinRange(tileMap [][]models.Tile, center models.Vec2, moveRange int) (int, int) {
+	for i := 0; i < 100; i++ {
+		dx := rand.Intn(moveRange*2+1) - moveRange
+		dy := rand.Intn(moveRange*2+1) - moveRange
+		nx := center.X + dx
+		ny := center.Y + dy
+
+		if nx >= 0 && nx < len(tileMap[0]) && ny >= 0 && ny < len(tileMap) {
+			if tileMap[ny][nx].Walkable {
+				return nx, ny
+			}
+		}
+	}
+	// ถ้าไม่เจอเลย return spawn จุดเดิม
+	return center.X, center.Y
 }

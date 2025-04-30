@@ -20,12 +20,13 @@ type Vec2 struct {
 }
 
 type Monster struct {
-	ID     int
-	Index  int
-	Pos    Vec2
-	Target Vec2
-	Path   []Vec2
-	Alive  bool
+	ID       int
+	Index    int
+	Pos      Vec2
+	Target   Vec2
+	Path     []Vec2
+	SpawnPos Vec2
+	Alive    bool
 }
 
 func (m *Monster) MoveStep() {
