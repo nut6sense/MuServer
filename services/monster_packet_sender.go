@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
 	"sync"
@@ -72,6 +73,10 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
 	for _, player := range GetPlayersInZone(zoneID) {
 		SendMonsterMoveToPlayer(player, m)
+	}
+
+	if len(GetPlayersInZone(zoneID)) == 0 {
+		log.Printf("Player 0")
 	}
 
 	fmt.Printf("Broadcasting to %d players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)

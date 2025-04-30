@@ -35,10 +35,10 @@ func StartMonsterAI() {
 							m.Target = nearest.Pos
 
 							// ถ้าอยู่ใน AttackRange แล้ว → ไม่ต้องเดิน
-							if distance(m.Pos, nearest.Pos) <= template.AttackRange {
-								simulateAttack(m, nearest)
-								continue
-							}
+							// if distance(m.Pos, nearest.Pos) <= template.AttackRange {
+							// 	simulateAttack(m, nearest)
+							// 	continue
+							// }
 
 							// ถ้าไกลเกิน AttackRange → เดินเข้าไป
 							if len(m.Path) == 0 {
@@ -151,7 +151,7 @@ func simulateAttack(m *models.Monster, target *Player) {
 	}
 
 	if target.CurrentLife == 0 {
-		broadcastPlayerDeath(target)
+		// broadcastPlayerDeath(target)
 	}
 }
 
