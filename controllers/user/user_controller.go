@@ -72,13 +72,77 @@ func LoginUser(Body string, username string) {
 func LoginUserUDP(Body string) {
 	fmt.Print("Login User UDP: ", Body)
 
+	var data models.RegisterUserDTO
+	err := json.Unmarshal([]byte(Body), &data)
+	if err != nil {
+		fmt.Println("❌ JSON parsing failed in RegisterUserUDP:", err)
+		return
+	}
+
 	services.SendUDP(message.USER_MESSAGE_REGISTER_USER_RETURN, Body)
 }
 
 func MoveUserUDP(Body string) {
-	fmt.Print("Move User UDP: ", Body)
+	var moveData models.MoveDataDTO
+	err := json.Unmarshal([]byte(Body), &moveData)
+	if err != nil {
+		fmt.Println("❌ JSON parsing failed:", err)
+		return
+	}
 
-	services.SendUDP(message.USER_MESSAGE_SET_USER_MOVE_RETURN, Body)
+	player := services.PlayerManager.Players[moveData.OwnerID]
+	if player == nil {
+		fmt.Println("⚠️ Player not found:", moveData.OwnerID)
+		return
+	}
+
+	// zoneID := player.ZoneID
+	// tileMap, ok := services.TileMapData[zoneID]
+	// if !ok {
+	// 	fmt.Println("⚠️ No tile map found for zone:", zoneID)
+	// 	return
+	// }
+
+	// start := player.Pos
+	// target := models.Vec2{
+	// 	X: int(moveData.Position.X),
+	// 	Y: int(moveData.Position.Y),
+	// }
+
+	// Pathfinding
+	// path := models.FindPath(start, target, tileMap)
+	// if len(path) == 0 {
+	// 	fmt.Printf("❌ No valid path from %v to %v\n", start, target)
+	// 	return
+	// }
+
+	// player.Pos = path[len(path)-1] // Update player position to the last step in the path
+
+	// // สร้าง Coords สำหรับตอบกลับ
+	// coords := make([]models.CoordDTO, len(path))
+	// for i, step := range path {
+	// 	coords[i] = models.CoordDTO{X: step.X, Y: step.Y}
+	// }
+
+	// ส่งข้อมูลเดิมเพื่อให้การเคลื่อนที่ๆถูกต้อง
+	coords := moveData.Coords
+
+	// สร้าง MoveDataDTO สำหรับตอบกลับ
+	response := models.MoveDataDTO{
+		OwnerID:  player.ID,
+		Position: models.Vec2{X: player.Pos.X, Y: player.Pos.Y},
+		Coords:   coords,
+	}
+
+	responseData, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("❌ JSON marshal failed:", err)
+		return
+	}
+
+	// ส่งกลับ client
+	services.SendUDP(message.USER_MESSAGE_SET_USER_MOVE_RETURN, string(responseData))
+	fmt.Printf("📤 Sent move response to player %s\n", player.Name)
 }
 
 func MoveMonsterUDP(Body string) {

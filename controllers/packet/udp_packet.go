@@ -51,6 +51,7 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 		if len(body) > 1 {
 			networkID := strings.TrimSpace(body)
 			RegisterUDPClient(addr, networkID)
+			SendExistingPlayersToNewClient(addr)
 		}
 	}
 
@@ -90,6 +91,35 @@ func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
 			log.Printf("❌ Failed to send to [%s] (%s): %v\n", client.NetworkID, client.Addr, err)
 		} else {
 			log.Printf("✅ Broadcasted to [%s] (%s)\n", client.NetworkID, client.Addr)
+		}
+	}
+}
+
+func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
+	UDPClientsMutex.RLock()
+	defer UDPClientsMutex.RUnlock()
+
+	for _, client := range UDPClients {
+		if client.Addr.String() == newClientAddr.String() {
+			continue
+		}
+
+		// ส่ง packet ที่มีข้อมูล client นี้ ไปยัง newClientAddr
+		// เช่น ใช้ header = message.USER_MESSAGE_REGISTER_USER_RETURN (หรือ header ใหม่ที่คุณนิยาม)
+		body := client.NetworkID // หรือ struct user ที่ serialize เป็น string
+
+		packet := strconv.Itoa(message.USER_MESSAGE_REGISTER_USER_RETURN) + "|" + body
+		response, err := models.EncryptMessage(packet)
+		if err != nil {
+			log.Println("Error encrypting user data for new client:", err)
+			continue
+		}
+
+		_, err = config.ConnUDP.WriteToUDP([]byte(response), newClientAddr)
+		if err != nil {
+			log.Printf("❌ Failed to send existing client to new client: %v\n", err)
+		} else {
+			log.Printf("✅ Sent existing client [%s] to new client (%s)\n", client.NetworkID, newClientAddr)
 		}
 	}
 }
