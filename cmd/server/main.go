@@ -6,6 +6,7 @@ import (
 	"maxion-zone4/config"
 	"maxion-zone4/controllers"
 	"maxion-zone4/controllers/character"
+	inventory_controller "maxion-zone4/controllers/inventory"
 	"maxion-zone4/models"
 	"os"
 
@@ -35,7 +36,7 @@ func main() {
 	// Load after dbgame connect
 	go character.ScheduleResetStamina()
 
-	// go inventory_controller.StartInventory()
+	go inventory_controller.StartInventory()
 
 	// ⬇️ โหลด TileMap เข้า Redis หลัง Redis พร้อม
 	if err := models.LoadTileMap(services.RedisClient); err != nil {
