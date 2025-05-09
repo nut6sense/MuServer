@@ -3,9 +3,11 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"maxion-zone4/models"
 	databaseModel "maxion-zone4/models/database"
 	"maxion-zone4/models/message"
+	"time"
 )
 
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
@@ -97,4 +99,18 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 	PlayerManager.Players[player.ID] = player
 	jsonPlayer, _ := json.MarshalIndent(player, "", "  ")
 	fmt.Println("Player Login (json):", string(jsonPlayer))
+
+	PlayerInZoneChecked(zoneID)
+}
+
+func PlayerInZoneChecked(zoneID int) {
+	go func() {
+		for {
+			if len(GetPlayersInZone(zoneID)) == 0 {
+				log.Printf("Player 0")
+			}
+			fmt.Printf("Broadcasting to %d Players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
+			time.Sleep(10 * time.Second)
+		}
+	}()
 }

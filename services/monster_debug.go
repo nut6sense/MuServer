@@ -65,7 +65,8 @@ func LoadAllMonsterTemplates() error {
 	}
 
 	for _, m := range xmlData.Monsters {
-		MonsterTemplates[m.Index] = &m
+		monster := m
+		MonsterTemplates[m.Index] = &monster
 	}
 
 	fmt.Println("✅ Loaded", len(MonsterTemplates), "monster templates.")

@@ -63,7 +63,8 @@ func StartMonsterAI() {
 					m.Path = models.FindPath(m.Pos, m.Target, tileMap)
 					//}
 
-					const sightRange = 20
+					// ระยะที่ Player ห่างจาก Monster
+					const sightRange = 50
 
 					// เช็คว่ามี Player ที่อยู่ใกล้ monster ตัวนี้
 					hasNearbyPlayer := false
@@ -79,7 +80,9 @@ func StartMonsterAI() {
 						m.MoveStep()
 						if hasNearbyPlayer {
 							BroadcastMonsterMoveToZone(zoneID, m)
-							log.Println("📡 MONSTER_MOVE → zone", zoneID, "→", m.ID, "→", m.Pos.X, m.Pos.Y)
+							// if m.ID == 10001 {
+							// 	log.Println("📡 MONSTER_MOVE → zone", zoneID, "→", m.ID, "→", m.Pos.X, m.Pos.Y)
+							// }
 						}
 					}
 				}

@@ -28,6 +28,7 @@ type Monster struct {
 	SpawnPos   Vec2
 	Alive      bool
 	WalkRemain int // จำนวนก้าวที่ยังเหลือ
+	SpawnArea  MonsterSpawnEntry
 }
 
 func (m *Monster) MoveStep() {
