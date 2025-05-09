@@ -102,7 +102,7 @@ type ItemList struct {
 var itemList map[string]ItemInventory
 
 // โหลดข้อมูลไอเทมจากไฟล์ XML
-func loadItemList(filePath string) error {
+func loadItemList() error {
 
 	// หา Working Directory ของโปรแกรม
 	basePath, err := os.Getwd()
@@ -307,12 +307,12 @@ func GenerateInventoryHex(item ItemInventory) string {
 }
 
 // แปลง boolean เป็น byte
-func boolToByte(b bool) byte {
-	if b {
-		return 1
-	}
-	return 0
-}
+// func boolToByte(b bool) byte {
+// 	if b {
+// 		return 1
+// 	}
+// 	return 0
+// }
 
 // ฟังก์ชันตรวจสอบว่าไอเทมอยู่ใน XML หรือไม่
 func isValidItem(sectionIndex, itemIndex int) bool {
@@ -393,7 +393,7 @@ func (inv *Inventory) FillEmptySlotsWithItem(hexItem string) error {
 // ฟังก์ชันหลักในการเพิ่มไอเทมลงใน Inventory และบันทึกลงฐานข้อมูล
 func StartInventory() {
 	// โหลดข้อมูลไอเทมจากไฟล์ XML
-	if err := loadItemList("IGC_ItemList.xml"); err != nil {
+	if err := loadItemList(); err != nil {
 		fmt.Println("Failed to load item list:", err)
 		return
 	}
