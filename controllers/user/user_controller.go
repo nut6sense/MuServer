@@ -82,6 +82,26 @@ func LoginUserUDP(Body string) {
 	services.SendUDP(message.USER_MESSAGE_REGISTER_USER_RETURN, Body)
 }
 
+func LogoutUserUDP(Body string) {
+	fmt.Print("Logout User UDP: ", Body)
+
+	var data models.LogoutUserDTO
+	err := json.Unmarshal([]byte(Body), &data)
+	if err != nil {
+		fmt.Println("❌ JSON parsing failed in LogoutUserUDP:", err)
+		return
+	}
+
+	// ลบผู้ใช้จาก Redis (Online List)
+	RemoveOnlineUser(data.ChannelID, data.ID)
+
+	// ส่ง UDP ยืนยันการ Logout กลับไปยัง Client
+	response := fmt.Sprintf(`{"id": "%s", "chanelCode": "%s"}`, data.ID, data.ChannelID)
+	services.SendUDP(message.USER_MESSAGE_LOGOUT_USER_RETURN, response)
+
+	fmt.Printf("✅ User %s ได้ถูกลบออกจาก Online List และส่งกลับไปยัง Client เรียบร้อยแล้ว\n", data.ID)
+}
+
 func MoveUserUDP(Body string) {
 	var moveData models.MoveDataDTO
 	err := json.Unmarshal([]byte(Body), &moveData)
@@ -143,6 +163,12 @@ func MoveUserUDP(Body string) {
 	// ส่งกลับ client
 	services.SendUDP(message.USER_MESSAGE_SET_USER_MOVE_RETURN, string(responseData))
 	fmt.Printf("📤 Sent move response to player %s\n", player.Name)
+}
+
+func AttackUserUDP(Body string) {
+	fmt.Print("Attack User UDP: ", Body)
+
+	services.SendUDP(message.USER_MESSAGE_SET_USER_ATTACK_RETURN, Body)
 }
 
 func MoveMonsterUDP(Body string) {
