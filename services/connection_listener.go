@@ -190,14 +190,14 @@ func ListConnectedClients() {
 
 // StartTCPListener สร้าง TCP server และรอรับการเชื่อมต่อจาก client
 func StartTCPListener() {
-	listener, err := net.Listen("tcp", ":9001")
+	listener, err := net.Listen("tcp", ":44405")
 	if err != nil {
 		fmt.Println("Error starting server:", err)
 		return
 	}
 	defer listener.Close()
 
-	fmt.Println("Server is listening on port 9001")
+	fmt.Println("Server is listening on port 44405")
 
 	// Start the client monitoring goroutine
 	go MonitorClients()
