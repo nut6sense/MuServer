@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,10 +9,12 @@ import (
 	user_controller "maxion-zone4/controllers/user"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
+	"maxion-zone4/services"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	skill "maxion-zone4/controllers/skill"
 )
@@ -92,7 +95,7 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 			fmt.Println("❌ JSON parsing failed:", err)
 			return
 		}
-		UpdateUDPClientPosition(addr, moveData.Position.X, moveData.Position.Y)
+		UpdateUDPClientPosition(addr, moveData)
 		resHeader = message.USER_MESSAGE_SET_USER_MOVE_RETURN
 	} else if header == message.USER_MESSAGE_GET_USER_ATTACK {
 		resHeader = message.USER_MESSAGE_SET_USER_ATTACK_RETURN
@@ -208,8 +211,12 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	log.Printf("✅ UDP Client registered: %s @ %s (Position: %d, %d)", data.ID, clientKey, data.Coord.X, data.Coord.Y)
 }
 
-func UpdateUDPClientPosition(addr *net.UDPAddr, x int, y int) {
+var ctx = context.Background()
+
+func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	clientKey := addr.String()
+	x := moveData.Position.X
+	y := moveData.Position.Y
 
 	UDPClientsMutex.Lock()
 	defer UDPClientsMutex.Unlock()
@@ -218,6 +225,31 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, x int, y int) {
 		client.Position.X = x
 		client.Position.Y = y
 		UDPClients[clientKey] = client
+
+		rdb := services.RedisClient
+
+		// สร้างข้อมูลการเคลื่อนไหว
+		move := models.CharacterMove{
+			Username:      "testuser123",
+			CharacterName: "DarkWizard",
+			MapNumber:     0,
+			PosX:          x,
+			PosY:          y,
+			Timestamp:     time.Now(),
+		}
+
+		// แปลง struct เป็น JSON
+		data, err := json.Marshal(move)
+		if err != nil {
+			panic(fmt.Sprintf("json marshal error: %v", err))
+		}
+
+		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
+		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
+
+		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {
+			panic(fmt.Sprintf("redis push error: %v", err))
+		}
 
 		log.Printf("✅ Updated position for %s to (%d, %d)", client.NetworkID, x, y)
 	} else {
