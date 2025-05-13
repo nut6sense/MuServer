@@ -705,95 +705,104 @@ const ItemSize = 32
 
 // โครงสร้างข้อมูลไอเท็ม
 type Item struct {
-	Index                int     `json:"index"`
-	Type                 uint16  `json:"type"`
-	Level                byte    `json:"level"`
-	Option1              byte    `json:"option1"`
-	Option2              byte    `json:"option2"`
-	Option3              byte    `json:"option3"`
-	Durability           byte    `json:"durability"`
-	Serial               uint64  `json:"serial"`
-	OptionNew            byte    `json:"option_new"`
-	SetOption            byte    `json:"set_option"`
-	SocketOptions        [5]byte `json:"socket_options"`
-	SocketBonusOption    byte    `json:"socket_bonus_option"`
-	PeriodItemOption     byte    `json:"period_item_option"`
-	JewelOfHarmonyOption byte    `json:"jewel_of_harmony_option"`
-	ItemEffectEx         byte    `json:"item_effect_ex"`
-	MainAttribute        byte    `json:"main_attribute"`
+	Index                int     `json:"index"`                   // ตำแหน่งในกระเป๋า (Inventory Slot)
+	Type                 uint16  `json:"type"`                    // ค่ารวม Section << 8 | ItemIndex
+	Section              byte    `json:"section"`                 // หมวดหมู่ของไอเท็ม เช่น 6 = โล่
+	ItemIndex            byte    `json:"item_index"`              // ลำดับของไอเท็มใน Section นั้น
+	Level                byte    `json:"level"`                   // ระดับไอเท็ม เช่น +9
+	Option1              byte    `json:"option1"`                 // ออปชันพิเศษ (Excellent)
+	Option2              byte    `json:"option2"`                 // Luck Option (โชค)
+	Option3              byte    `json:"option3"`                 // Additional Option (เสริม)
+	Durability           byte    `json:"durability"`              // ความคงทนของไอเท็ม
+	Serial               uint64  `json:"serial"`                  // หมายเลขเฉพาะของไอเท็ม (ไม่ซ้ำกัน)
+	OptionNew            byte    `json:"option_new"`              // ออปชันเสริมเพิ่มเติม
+	SetOption            byte    `json:"set_option"`              // ค่าเซตไอเท็ม เช่น Ancient/Socket Set
+	SocketOptions        [5]byte `json:"socket_options"`          // ค่า Socket (0xFF = ช่องว่าง)
+	SocketBonusOption    byte    `json:"socket_bonus_option"`     // โบนัสเมื่อใส่ Socket ครบ
+	PeriodItemOption     byte    `json:"period_item_option"`      // ไอเท็มแบบจำกัดเวลา (1 = ใช่)
+	JewelOfHarmonyOption byte    `json:"jewel_of_harmony_option"` // ค่า Harmony Option จาก Jewel
+	ItemEffectEx         byte    `json:"item_effect_ex"`          // เอฟเฟกต์พิเศษ เช่น Wing, Glow
+	MainAttribute        byte    `json:"main_attribute"`          // ธาตุหลักของไอเท็ม (เช่น ไฟ, น้ำ)
 }
 
 func SendInventoryToClient(data []byte) string {
-	// ตรวจสอบว่าขนาดของข้อมูลถูกต้อง
+	const ItemSize = 32
+
+	// ✅ ตรวจสอบขนาดข้อมูล
 	if len(data)%ItemSize != 0 {
-		fmt.Printf("invalid inventory data length")
+		fmt.Printf("invalid inventory data length: %d bytes (not divisible by %d)\n", len(data), ItemSize)
+		return "{}" // ส่ง JSON เปล่า
 	}
 
-	// คำนวณจำนวนไอเท็ม
 	itemCount := len(data) / ItemSize
 	items := make([]Item, 0, itemCount)
 
-	// วนลูปแปลงข้อมูลไอเท็ม
+	// ✅ แปลงข้อมูลแต่ละไอเท็ม
 	for i := 0; i < itemCount; i++ {
 		start := i * ItemSize
 		end := start + ItemSize
 
-		// แปลงข้อมูลเป็น Item
 		item, isEmpty := ConvertItem(data[start:end], i)
-
-		// ถ้าไอเท็มไม่ว่าง ให้เพิ่มเข้าไปใน array
-		if !isEmpty {
-			items = append(items, *item)
+		if item == nil || isEmpty {
+			continue
 		}
+		items = append(items, *item)
 	}
 
-	// แปลงเป็น JSON
+	// ✅ แปลง slice เป็น JSON
 	jsonData, err := json.Marshal(items)
 	if err != nil {
-		fmt.Printf("error : %v", err)
+		fmt.Printf("error encoding inventory json: %v\n", err)
+		return "{}"
 	}
 
-	// ส่ง JSON ไปยัง Client (return string)
 	return string(jsonData)
 }
 
 // แปลง byte array เป็น Item Struct
-func ConvertItem(data []byte, index int) (*Item, bool) {
+func ConvertItem(data []byte, inventoryIndex int) (*Item, bool) {
+	const ItemSize = 32
 	if len(data) < ItemSize {
-		fmt.Println("invalid item data length")
+		fmt.Println("invalid item data length:", len(data))
+		return nil, true
 	}
 
-	// อ่านค่า Type ตามการคำนวณใน ItemByteConvert32()
+	// ถอดค่า itemType จาก 3 ช่วงบิต
 	itemTypeLow := uint16(data[0])
-	itemType9thBit := (uint16(data[7]) & 0x80) >> 7 // บิต 9 อยู่ที่ buf[8] บิตสูงสุด
-	itemType10to13 := (uint16(data[9]) & 0xF0) >> 4 // บิต 10-13 อยู่ที่ buf[9] บิตสูงสุด
-
+	itemType9thBit := (uint16(data[7]) & 0x80) >> 7 // bit 7 ของ byte[7]
+	itemType10to13 := (uint16(data[9]) & 0xF0) >> 4 // bit 4-7 ของ byte[9]
 	itemType := itemTypeLow | (itemType9thBit << 8) | (itemType10to13 << 9)
 
-	// ตรวจสอบว่าไอเท็มเป็นค่าว่าง (เทียบกับ ConvertInventory())
-	isEmpty := data[0] == 0xFF && itemType9thBit == 1 && itemType10to13 == 0xF
+	section := byte(itemType >> 8)     // บิต 8-13 = Section
+	itemIndex := byte(itemType & 0xFF) // บิต 0-7 = Index ภายใน Section
 
+	// ตรวจสอบว่าเป็นไอเท็มว่าง (Empty Slot)
+	isEmpty := data[0] == 0xFF && itemType9thBit == 1 && itemType10to13 == 0xF
 	if isEmpty {
 		return nil, true
 	}
 
-	// อ่านค่า Serial (แยกเป็น 2 ส่วน: HIDWORD และ LODWORD)
-	serial := uint64(binary.LittleEndian.Uint32(data[20:24]))<<32 | uint64(binary.LittleEndian.Uint32(data[16:20]))
+	// อ่าน Serial 64-bit (Hi << 32 | Lo)
+	serialLo := binary.LittleEndian.Uint32(data[16:20])
+	serialHi := binary.LittleEndian.Uint32(data[20:24])
+	serial := (uint64(serialHi) << 32) | uint64(serialLo)
 
 	return &Item{
-		Index:                index,
+		Index:                inventoryIndex,
 		Type:                 itemType,
+		Section:              section,
+		ItemIndex:            itemIndex,
 		Level:                (data[2] >> 3) & 0x0F,
 		Option1:              (data[2] >> 7) & 0x01,
 		Option2:              (data[2] >> 2) & 0x01,
 		Option3:              data[2] & 0x03,
 		Durability:           data[3],
 		Serial:               serial,
-		OptionNew:            data[8], // ใช้ค่าใน `buf[8]`
-		SetOption:            data[9], // ใช้ค่าใน `buf[9]`
+		OptionNew:            data[8],
+		SetOption:            data[9],
 		SocketOptions:        [5]byte{data[10], data[11], data[12], data[13], data[14]},
 		SocketBonusOption:    data[15],
-		PeriodItemOption:     (data[9] >> 1) & 0x01, // ใช้ `buf[9]` บิตที่ 1
+		PeriodItemOption:     (data[9] >> 1) & 0x01,
 		JewelOfHarmonyOption: data[10],
 		ItemEffectEx:         data[11],
 		MainAttribute:        data[12],
