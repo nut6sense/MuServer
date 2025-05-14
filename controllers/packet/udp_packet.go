@@ -253,14 +253,15 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 		// แปลง struct เป็น JSON
 		data, err := json.Marshal(move)
 		if err != nil {
-			panic(fmt.Sprintf("json marshal error: %v", err))
+			log.Printf("❌ JSON marshal error: %v", err)
+			return
 		}
 
 		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
 		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
-
 		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {
-			panic(fmt.Sprintf("redis push error: %v", err))
+			log.Printf("❌ Redis LPUSH error: %v", err)
+			return
 		}
 
 		log.Printf("✅ Updated position for %s to (%d, %d)", client.NetworkID, x, y)
