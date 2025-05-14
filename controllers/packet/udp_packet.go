@@ -32,9 +32,13 @@ var udpPacketHandlers = map[int]func(string){
 }
 
 type UDPClient struct {
-	Addr      *net.UDPAddr
-	NetworkID string
-	Position  Coordinates
+	Addr          *net.UDPAddr
+	NetworkID     string
+	Position      Coordinates
+	ClassID       int    // เพิ่ม ClassID เข้าไป
+	Username      string // ชื่อบัญชีผู้เล่น
+	CharacterName string // ชื่อตัวละครในเกม
+	MapNumber     int    // หมายเลขของแผนที่
 }
 
 type Coordinates struct {
@@ -150,6 +154,10 @@ func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
 				X: client.Position.X,
 				Y: client.Position.Y,
 			},
+			ClassID:       client.ClassID, // << เพิ่มตรงนี้
+			Username:      client.Username,
+			CharacterName: client.CharacterName,
+			MapNumber:     client.MapNumber,
 		}
 
 		// ✅ Serialize เป็น JSON
@@ -206,6 +214,10 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 			X: data.Coord.X,
 			Y: data.Coord.Y,
 		},
+		ClassID:       data.ClassID,
+		Username:      data.Username,      // <-- เพิ่มตรงนี้
+		CharacterName: data.CharacterName, // <-- เพิ่มตรงนี้
+		MapNumber:     data.MapNumber,     // <-- เพิ่มตรงนี้
 	}
 
 	log.Printf("✅ UDP Client registered: %s @ %s (Position: %d, %d)", data.ID, clientKey, data.Coord.X, data.Coord.Y)
@@ -230,9 +242,9 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 
 		// สร้างข้อมูลการเคลื่อนไหว
 		move := models.CharacterMove{
-			Username:      "testuser123",
-			CharacterName: "DarkWizard",
-			MapNumber:     0,
+			Username:      client.Username,      //"testuser123",
+			CharacterName: client.CharacterName, //"DarkWizard",
+			MapNumber:     client.MapNumber,     //0,
 			PosX:          x,
 			PosY:          y,
 			Timestamp:     time.Now(),
@@ -241,14 +253,15 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 		// แปลง struct เป็น JSON
 		data, err := json.Marshal(move)
 		if err != nil {
-			panic(fmt.Sprintf("json marshal error: %v", err))
+			log.Printf("❌ JSON marshal error: %v", err)
+			return
 		}
 
 		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
 		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
-
 		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {
-			panic(fmt.Sprintf("redis push error: %v", err))
+			log.Printf("❌ Redis LPUSH error: %v", err)
+			return
 		}
 
 		log.Printf("✅ Updated position for %s to (%d, %d)", client.NetworkID, x, y)
