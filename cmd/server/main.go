@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// โหลด TileMap จาก Redis
-	services.LoadTileMapsFromRedis()
+	// services.LoadTileMapsFromRedis()
 
 	if err := services.LoadAllMonsterTemplates(); err != nil {
 		log.Fatal("Failed to load monster templates:", err)

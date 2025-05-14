@@ -36,9 +36,9 @@ type UDPClient struct {
 	NetworkID     string
 	Position      Coordinates
 	ClassID       int    // เพิ่ม ClassID เข้าไป
-	Username      string `json:"username"`       // ชื่อบัญชีผู้เล่น
-	CharacterName string `json:"character_name"` // ชื่อตัวละครในเกม
-	MapNumber     int    `json:"map_number"`     // หมายเลขของแผนที่
+	Username      string // ชื่อบัญชีผู้เล่น
+	CharacterName string // ชื่อตัวละครในเกม
+	MapNumber     int    // หมายเลขของแผนที่
 }
 
 type Coordinates struct {
