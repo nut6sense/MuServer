@@ -3,9 +3,12 @@ package models
 var User string
 
 type RegisterUserDTO struct {
-	ID      string   `json:"id"`
-	ClassID int      `json:"classId"`
-	Coord   CoordDTO `json:"coord"`
+	ID            string   `json:"id"`
+	ClassID       int      `json:"classId"`
+	Coord         CoordDTO `json:"coord"`
+	Username      string   `json:"userName"`      // ชื่อบัญชีผู้เล่น
+	CharacterName string   `json:"characterName"` // ชื่อตัวละครในเกม
+	MapNumber     int      `json:"mapNumber"`     // หมายเลขของแผนที่
 }
 
 type LogoutUserDTO struct {
