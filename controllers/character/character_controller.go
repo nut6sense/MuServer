@@ -872,20 +872,27 @@ func LoadDefaultClassType(body string, username string) {
 }
 
 func ExecCreateCharacter(accountID, name string, class, serverCode int) (int, error) {
-	var rawResult []uint8 // Use byte slice to handle the SQL Server return type
-	var result int
+	// var rawResult []byte
+	// err := services.GameDB.Raw("EXEC Maxion_CreateCharacter @AccountID = ?, @Name = ?, @Class = ?, @ServerCode = ?", accountID, name, class, serverCode).Scan(&rawResult).Error
+	// if err != nil {
+	// 	return 0, fmt.Errorf("SQL execution failed: %w", err)
+	// }
+	// if len(rawResult) == 0 {
+	// 	return 0, fmt.Errorf("empty result from stored procedure")
+	// }
+	// // Convert first byte to int
+	// result := int(rawResult[0])
+	// return result, nil
 
-	// ใช้ Raw Query และ Scan ค่าผลลัพธ์เข้าไปที่ตัวแปร `result`
-	err := services.GameDB.Raw("EXEC Maxion_CreateCharacter @AccountID = ?, @Name = ?, @Class = ?, @ServerCode = ?", accountID, name, class, serverCode).Scan(&rawResult).Error
-
-	if err != nil {
+	row := services.GameDB.Raw("EXEC Maxion_CreateCharacter @AccountID = ?, @Name = ?, @Class = ?, @ServerCode = ?", accountID, name, class, serverCode).Row()
+	var resultBytes []byte
+	if err := row.Scan(&resultBytes); err != nil {
 		return 0, err
 	}
-
-	// Convert byte slice to integer
-	result = int(rawResult[0])
-
-	return result, nil
+	if len(resultBytes) == 0 {
+		return 0, fmt.Errorf("empty result")
+	}
+	return int(resultBytes[0]), nil
 }
 
 func CreateCharacter(body string, username string) {
@@ -927,19 +934,19 @@ func CreateCharacter(body string, username string) {
 		log.Println("Error occurred while creating character: ", err)
 	}
 
-	msg := "Character created successfully!"
-	event := message.USER_MESSAGE_CREATE_CHARACTER_RETURN
+	msg := "Character name already exists"
+	event := message.USER_MESSAGE_CREATE_CHARACTER_ERROR
 
 	switch result {
 	case 0x01:
-		msg = "Character name already exists"
-		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+		msg = "Character created successfully!"
+		event = message.USER_MESSAGE_CREATE_CHARACTER_RETURN
 	case 0x03:
 		msg = "No available slot to create a character"
-		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+		event = message.USER_MESSAGE_CREATE_CHARACTER_RETURN
 	case 0x02:
 		msg = "Unknown error occurred"
-		event = message.USER_MESSAGE_CREATE_CHARACTER_ERROR
+		event = message.USER_MESSAGE_CREATE_CHARACTER_RETURN
 	}
 
 	fmt.Println("CreateCharacter Return: ", msg)
