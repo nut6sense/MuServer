@@ -219,3 +219,13 @@ type CharacterRankingData struct {
 	TotalZpRank                    int  `json:"total_zp_rank"`
 	TotalZpRankYesterday           int  `json:"total_zp_rank_yesterday"`
 }
+
+// Position ตัวละคร
+type CharacterMove struct {
+	Username      string    `json:"username"`       // ชื่อบัญชีผู้เล่น (เช่น "natt123") ใช้แยกผู้เล่นในระบบ
+	CharacterName string    `json:"character_name"` // ชื่อตัวละครในเกม (เช่น "DarkLord01") ใช้ในการติดตามตำแหน่ง
+	MapNumber     int       `json:"map_number"`     // รหัสแผนที่ที่ตัวละครอยู่ เช่น 0 = Lorencia, 1 = Dungeon ฯลฯ
+	PosX          int       `json:"pos_x"`          // พิกัดแนวนอน (X) บนแผนที่
+	PosY          int       `json:"pos_y"`          // พิกัดแนวตั้ง (Y) บนแผนที่
+	Timestamp     time.Time `json:"timestamp"`      // เวลาที่มีการเคลื่อนไหวนี้เกิดขึ้น ใช้เพื่อเรียงลำดับหรือวิเคราะห์
+}

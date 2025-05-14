@@ -160,6 +160,6 @@ func SendUDP(header int, body string) error {
 		return err
 	}
 
-	log.Println("config.Addr:", config.Addr)
+	// log.Println("config.Addr:", config.Addr)
 	return nil
 }
