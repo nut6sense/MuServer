@@ -32,9 +32,12 @@ var udpPacketHandlers = map[int]func(string){
 }
 
 type UDPClient struct {
-	Addr      *net.UDPAddr
-	NetworkID string
-	Position  Coordinates
+	Addr          *net.UDPAddr
+	Username      string
+	CharacterName string
+	ZoneID        int
+	NetworkID     string
+	Position      Coordinates
 }
 
 type Coordinates struct {
@@ -230,9 +233,9 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 
 		// สร้างข้อมูลการเคลื่อนไหว
 		move := models.CharacterMove{
-			Username:      "testuser123",
-			CharacterName: "DarkWizard",
-			MapNumber:     0,
+			Username:      client.Username,
+			CharacterName: client.CharacterName,
+			MapNumber:     client.ZoneID,
 			PosX:          x,
 			PosY:          y,
 			Timestamp:     time.Now(),
@@ -241,14 +244,15 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 		// แปลง struct เป็น JSON
 		data, err := json.Marshal(move)
 		if err != nil {
-			panic(fmt.Sprintf("json marshal error: %v", err))
+			log.Printf("❌ JSON marshal error: %v", err)
+			return
 		}
 
 		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
 		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
-
 		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {
-			panic(fmt.Sprintf("redis push error: %v", err))
+			log.Printf("❌ Redis LPUSH error: %v", err)
+			return
 		}
 
 		log.Printf("✅ Updated position for %s to (%d, %d)", client.NetworkID, x, y)
