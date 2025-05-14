@@ -270,6 +270,8 @@ func SyncCharacterPositionToCharacterTable(characterName string) error {
 		return fmt.Errorf("db update error: %w", err)
 	}
 
+	DeleteRedisKey(key)
+
 	log.Printf("✅ Updated position of %s -> Map:%d, X:%d, Y:%d", move.CharacterName, move.MapNumber, move.PosX, move.PosY)
 	return nil
 }
