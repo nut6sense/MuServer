@@ -23,8 +23,7 @@ func SpawnMonstersFromSpawnData(spawnMaps []models.MonsterSpawnMapXML) {
 					pos := getRandomWalkableInArea(tileMap, entry.StartX, entry.StartY, entry.EndX, entry.EndY)
 					target := getRandomWalkableInArea(tileMap, entry.StartX, entry.StartY, entry.EndX, entry.EndY)
 
-					m := models.NewMonster(pos, target)
-					m.Index = entry.Index
+					m := models.NewMonster(entry.Index, pos, target)
 					AddMonster(zone.Number, m)
 					BroadcastMonsterToZone(zone.Number, m, template)
 				}

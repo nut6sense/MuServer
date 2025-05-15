@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maxion-zone4/models"
@@ -68,6 +69,16 @@ func BroadcastToZone(zoneID int, data []byte) {
 	}
 }
 
+func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
+	data := map[string]interface{}{
+		"monsterId": m.ID,
+		"x":         m.Pos.X,
+		"y":         m.Pos.Y,
+	}
+	jsonData, _ := json.Marshal(data)
+	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+}
+
 func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
 	for _, player := range GetPlayersInZone(zoneID) {
@@ -81,14 +92,49 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 	// fmt.Printf("Broadcasting to %d players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
 }
 
-func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
-	data := map[string]interface{}{
-		"monsterId": m.ID,
-		"x":         m.Pos.X,
-		"y":         m.Pos.Y,
+func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
+	packet := BuildMonsterGroupMovePacket(monsters)
+	SendToPlayersInZone(zoneID, packet)
+}
+
+func BuildMonsterGroupMovePacket(monsters []*models.Monster) []byte {
+	buf := new(bytes.Buffer)
+
+	// Packet header (ตามโปรโตคอลคุณ - สมมุติ PacketType = 0xC2 0xF3 0x01)
+	buf.WriteByte(0xC2)
+	buf.Write([]byte{0x00, 0x00}) // Placeholder for size, จะใส่ทีหลัง
+	buf.WriteByte(0xF3)
+	buf.WriteByte(0x01) // Subcode for "group monster move"
+
+	// จำนวน Monster
+	buf.WriteByte(byte(len(monsters)))
+
+	for _, m := range monsters {
+		buf.Write(EncodeMonsterMoveEntry(m))
 	}
-	jsonData, _ := json.Marshal(data)
-	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+
+	// แทรกความยาว packet ที่ตำแหน่ง [1:3]
+	packet := buf.Bytes()
+	packetLen := len(packet)
+	packet[1] = byte(packetLen >> 8)
+	packet[2] = byte(packetLen & 0xFF)
+
+	return packet
+}
+
+func EncodeMonsterMoveEntry(m *models.Monster) []byte {
+	buf := new(bytes.Buffer)
+	buf.WriteByte(byte(m.ID))    // Monster ID
+	buf.WriteByte(byte(m.Pos.X)) // Pos X
+	buf.WriteByte(byte(m.Pos.Y)) // Pos Y
+	buf.WriteByte(byte(m.Index)) // Monster type index (template)
+	return buf.Bytes()
+}
+
+func SendToPlayersInZone(zoneID int, packet []byte) {
+	for _, player := range GetPlayersInZone(zoneID) {
+		player.SendPacket(packet)
+	}
 }
 
 // func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {

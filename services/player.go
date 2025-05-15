@@ -32,7 +32,8 @@ var PlayerManager = struct {
 func GetPlayersInZone(zoneID int) []*Player {
 	var list []*Player
 	for _, p := range PlayerManager.Players {
-		if p.ZoneID == zoneID && p.CurrentLife > 0 {
+		// if p.ZoneID == zoneID && p.CurrentLife > 0 {
+		if p.ZoneID == zoneID {
 			list = append(list, p)
 		}
 	}
