@@ -257,6 +257,10 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 			return
 		}
 
+		playerInfo := services.PlayerManager.Players[client.Username]
+		services.PlayerManager.Players[client.Username].CurrentLife = int(playerInfo.MaxLife)
+		services.PlayerManager.Players[client.Username].Pos = models.Vec2{X: x, Y: y}
+
 		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
 		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
 		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {

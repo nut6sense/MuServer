@@ -37,28 +37,32 @@ func StartMonsterAI() {
 					// 👁️ หา player ใกล้ที่สุดใน ViewRange
 					nearest := findNearestPlayer(m, players)
 					if nearest != nil && distance(m.Pos, nearest.Pos) <= template.ViewRange {
+
+						log.Printf("🎯 Monster #%d (pos: %d,%d) found player [%s] at (%d,%d), dist: %d",
+							m.ID, m.Pos.X, m.Pos.Y,
+							nearest.Name, nearest.Pos.X, nearest.Pos.Y,
+							distance(m.Pos, nearest.Pos),
+						)
+
 						// ✅ ถ้า target เปลี่ยน → อัปเดต
-						if m.Target != nearest.Pos {
+						if m.Target != nearest.Pos || len(m.Path) == 0 {
 							m.Target = nearest.Pos
 							m.Path = nil // สำคัญ: ล้าง path เพื่อหาใหม่
-						}
-
-						// ⚔️ ถ้าอยู่ในระยะโจมตี
-						if distance(m.Pos, nearest.Pos) <= template.AttackRange {
-							simulateAttack(m, nearest)
-							continue
 						}
 
 						// 🧭 หา path ไปหา player
 						if len(m.Path) == 0 {
 							path := models.FindPath(m.Pos, m.Target, tileMap)
+							log.Printf("🧭 Monster #%d path to player length: %d", m.ID, len(path))
 							if len(path) > 1 {
 								m.Path = path
 							} else {
-								log.Printf("⚠️ Monster %d path too short (%d), skipping", m.ID, len(path))
-								m.Path = nil // reset เพื่อให้สุ่มรอบถัดไป
+								log.Printf("⚠️ Monster %d path too short (%d), fallback to random", m.ID, len(path))
+								m.Path = nil             // reset เพื่อให้สุ่มรอบถัดไป
+								m.Target = models.Vec2{} // ✅ จุดสำคัญที่สุด
 							}
 						}
+						// continue
 					}
 
 					// 🔄 ถ้าไม่มีเป้าหมาย หรือ path เดินหมด → สุ่มเป้าหมายใหม่
@@ -74,10 +78,10 @@ func StartMonsterAI() {
 						path := models.FindPath(m.Pos, m.Target, tileMap)
 						if len(path) > 1 {
 							m.Path = path
-							// log.Printf("🚶 Monster %d walk to (%d,%d) full MoveRange: %d", m.ID, tx, ty, template.MoveRange)
 						} else {
-							log.Printf("⚠️ Monster %d path too short (%d), skipping", m.ID, len(path))
-							m.Path = nil // reset เพื่อให้สุ่มรอบถัดไป
+							log.Printf("⚠️ Monster %d path too short (%d), fallback to random", m.ID, len(path))
+							m.Path = nil             // reset เพื่อให้สุ่มรอบถัดไป
+							m.Target = models.Vec2{} // ✅ จุดสำคัญที่สุด
 						}
 					}
 
@@ -92,16 +96,17 @@ func StartMonsterAI() {
 					// }
 
 					// หยุดเฉพาะตอนยังไม่มี path เท่านั้น
-					// if len(m.Path) == 0 && rand.Intn(15) == 0 {
-					// 	continue
-					// }
-
-					if len(m.Path) == 0 {
+					if len(m.Path) == 0 && rand.Intn(30) == 0 {
 						continue
 					}
 
+					// if len(m.Path) == 0 {
+					// 	continue
+					// }
+
 					now := time.Now()
 					if len(m.Path) > 0 && now.Sub(m.LastMoveTime) >= m.MoveDelay {
+						// log.Printf("👣 Monster #%d moving along path (steps: %d)", m.ID, len(m.Path))
 						m.MoveStep(template)
 						m.LastMoveTime = now
 
@@ -117,13 +122,6 @@ func StartMonsterAI() {
 			}
 		}
 	}()
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // สุ่มตำแหน่งที่สามารถเดินได้ในแผนที่
