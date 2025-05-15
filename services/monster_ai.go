@@ -92,7 +92,11 @@ func StartMonsterAI() {
 					// }
 
 					// หยุดเฉพาะตอนยังไม่มี path เท่านั้น
-					if len(m.Path) == 0 && rand.Intn(15) == 0 {
+					// if len(m.Path) == 0 && rand.Intn(15) == 0 {
+					// 	continue
+					// }
+
+					if len(m.Path) == 0 {
 						continue
 					}
 
