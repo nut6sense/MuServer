@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
 	"sync"
@@ -94,6 +95,7 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
 func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
 	packet := BuildMonsterGroupMovePacket(monsters)
+	log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)
 	SendToPlayersInZone(zoneID, packet)
 }
 

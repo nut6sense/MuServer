@@ -44,7 +44,7 @@ func (m *Monster) MoveStep(template *MonsterTemplate) {
 		m.Path = m.Path[1:]
 		stepsTaken++
 
-		log.Printf("👣 Monster %d moved to (%d,%d)", m.ID, m.Pos.X, m.Pos.Y)
+		// log.Printf("👣 Monster %d moved to (%d,%d)", m.ID, m.Pos.X, m.Pos.Y)
 	}
 
 	// ✅ ล้าง path หากเดินหมด

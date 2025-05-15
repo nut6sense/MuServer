@@ -70,7 +70,7 @@ func StartMonsterAI() {
 						path := models.FindPath(m.Pos, m.Target, tileMap)
 						if len(path) > 1 {
 							m.Path = path
-							log.Printf("🚶 Monster %d walk to (%d,%d) full MoveRange: %d", m.ID, tx, ty, template.MoveRange)
+							// log.Printf("🚶 Monster %d walk to (%d,%d) full MoveRange: %d", m.ID, tx, ty, template.MoveRange)
 						} else {
 							log.Printf("⚠️ Monster %d path too short (%d), skipping", m.ID, len(path))
 							m.Path = nil // reset เพื่อให้สุ่มรอบถัดไป
@@ -78,17 +78,17 @@ func StartMonsterAI() {
 					}
 
 					// 👀 ตรวจผู้เล่นใกล้ zone เพื่อตัดสินใจ broadcast
-					const sightRange = 50
-					hasNearbyPlayer := false
-					for _, p := range players {
-						if distance(m.Pos, p.Pos) <= sightRange {
-							hasNearbyPlayer = true
-							break
-						}
-					}
+					// const sightRange = 50
+					// hasNearbyPlayer := false
+					// for _, p := range players {
+					// 	if distance(m.Pos, p.Pos) <= sightRange {
+					// 		hasNearbyPlayer = true
+					// 		break
+					// 	}
+					// }
 
 					// หยุดเฉพาะตอนยังไม่มี path เท่านั้น
-					if len(m.Path) == 0 && rand.Intn(10) == 0 {
+					if len(m.Path) == 0 && rand.Intn(15) == 0 {
 						continue
 					}
 
@@ -97,9 +97,7 @@ func StartMonsterAI() {
 						m.MoveStep(template)
 						m.LastMoveTime = now
 
-						if hasNearbyPlayer {
-							movedMonsters[zoneID] = append(movedMonsters[zoneID], m)
-						}
+						movedMonsters[zoneID] = append(movedMonsters[zoneID], m)
 					}
 				}
 			}
