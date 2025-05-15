@@ -55,7 +55,9 @@ func main() {
 	services.SpawnMonstersFromSpawnData(spawnData)
 
 	services.PrintMonsterSummary()
-	services.ListMonstersInZone(0)
+	for i := 0; i < 4; i++ {
+		services.ListMonstersInZone(i)
+	}
 	services.StartMonsterAI()
 	services.StartCharacterPositionSyncLoop()
 

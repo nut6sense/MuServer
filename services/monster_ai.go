@@ -52,9 +52,17 @@ func StartMonsterAI() {
 						}
 
 						// ⚔️ ถ้าอยู่ในระยะโจมตี
+						// if distance(m.Pos, nearest.Pos) <= template.AttackRange {
+						// 	simulateAttack(m, nearest)
+						// 	continue
+						// }
 						if distance(m.Pos, nearest.Pos) <= template.AttackRange {
-							simulateAttack(m, nearest)
-							continue
+							cooldown := attackSpeedToCooldownMs(template.AttackSpeed)
+							if time.Since(m.LastAttackTime) >= cooldown {
+								simulateAttack(m, nearest)
+								m.LastAttackTime = time.Now()
+							}
+							// ❗ ไม่ใส่ continue → ให้เดินด้วยถ้าอยู่ใน path
 						}
 
 						// 🧭 หา path ไปหา player
@@ -244,4 +252,11 @@ func getRandomWalkableWithinRange(tileMap [][]models.Tile, center models.Vec2, m
 	}
 	// fallback ถ้าหาไม่ได้
 	return center.X, center.Y
+}
+
+func attackSpeedToCooldownMs(atkSpeed int) time.Duration {
+	if atkSpeed <= 0 {
+		return 1500 * time.Millisecond // fallback default
+	}
+	return time.Duration(100000/(15*atkSpeed)) * time.Millisecond
 }

@@ -21,17 +21,18 @@ type Vec2 struct {
 }
 
 type Monster struct {
-	ID           int
-	Index        int
-	Pos          Vec2
-	Target       Vec2
-	Path         []Vec2
-	SpawnPos     Vec2
-	Alive        bool
-	WalkRemain   int // จำนวนก้าวที่ยังเหลือ
-	SpawnArea    MonsterSpawnEntry
-	LastMoveTime time.Time     // เวลาที่เดินครั้งล่าสุด
-	MoveDelay    time.Duration // ความถี่ในการเดิน (เช่น 400–800ms)
+	ID             int
+	Index          int
+	Pos            Vec2
+	Target         Vec2
+	Path           []Vec2
+	SpawnPos       Vec2
+	Alive          bool
+	WalkRemain     int // จำนวนก้าวที่ยังเหลือ
+	SpawnArea      MonsterSpawnEntry
+	LastMoveTime   time.Time     // เวลาที่เดินครั้งล่าสุด
+	MoveDelay      time.Duration // ความถี่ในการเดิน (เช่น 400–800ms)
+	LastAttackTime time.Time
 }
 
 func (m *Monster) MoveStep(template *MonsterTemplate) {
