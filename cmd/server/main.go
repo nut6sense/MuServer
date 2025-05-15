@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// โหลด TileMap จาก Redis
-	services.LoadTileMapsFromRedis()
+	// services.LoadTileMapsFromRedis()
 
 	if err := services.LoadAllMonsterTemplates(); err != nil {
 		log.Fatal("Failed to load monster templates:", err)
@@ -57,6 +57,7 @@ func main() {
 	services.PrintMonsterSummary()
 	services.ListMonstersInZone(0)
 	services.StartMonsterAI()
+	services.StartCharacterPositionSyncLoop()
 
 	fmt.Println("Servers are running...")
 

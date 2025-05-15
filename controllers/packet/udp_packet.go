@@ -1,6 +1,7 @@
 package packet
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,10 +9,12 @@ import (
 	user_controller "maxion-zone4/controllers/user"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
+	"maxion-zone4/services"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	skill "maxion-zone4/controllers/skill"
 )
@@ -29,9 +32,13 @@ var udpPacketHandlers = map[int]func(string){
 }
 
 type UDPClient struct {
-	Addr      *net.UDPAddr
-	NetworkID string
-	Position  Coordinates
+	Addr          *net.UDPAddr
+	NetworkID     string
+	Position      Coordinates
+	ClassID       int    // เพิ่ม ClassID เข้าไป
+	Username      string // ชื่อบัญชีผู้เล่น
+	CharacterName string // ชื่อตัวละครในเกม
+	MapNumber     int    // หมายเลขของแผนที่
 }
 
 type Coordinates struct {
@@ -92,7 +99,7 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 			fmt.Println("❌ JSON parsing failed:", err)
 			return
 		}
-		UpdateUDPClientPosition(addr, moveData.Position.X, moveData.Position.Y)
+		UpdateUDPClientPosition(addr, moveData)
 		resHeader = message.USER_MESSAGE_SET_USER_MOVE_RETURN
 	} else if header == message.USER_MESSAGE_GET_USER_ATTACK {
 		resHeader = message.USER_MESSAGE_SET_USER_ATTACK_RETURN
@@ -147,6 +154,10 @@ func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
 				X: client.Position.X,
 				Y: client.Position.Y,
 			},
+			ClassID:       client.ClassID, // << เพิ่มตรงนี้
+			Username:      client.Username,
+			CharacterName: client.CharacterName,
+			MapNumber:     client.MapNumber,
 		}
 
 		// ✅ Serialize เป็น JSON
@@ -203,13 +214,21 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 			X: data.Coord.X,
 			Y: data.Coord.Y,
 		},
+		ClassID:       data.ClassID,
+		Username:      data.Username,      // <-- เพิ่มตรงนี้
+		CharacterName: data.CharacterName, // <-- เพิ่มตรงนี้
+		MapNumber:     data.MapNumber,     // <-- เพิ่มตรงนี้
 	}
 
 	log.Printf("✅ UDP Client registered: %s @ %s (Position: %d, %d)", data.ID, clientKey, data.Coord.X, data.Coord.Y)
 }
 
-func UpdateUDPClientPosition(addr *net.UDPAddr, x int, y int) {
+var ctx = context.Background()
+
+func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	clientKey := addr.String()
+	x := moveData.Position.X
+	y := moveData.Position.Y
 
 	UDPClientsMutex.Lock()
 	defer UDPClientsMutex.Unlock()
@@ -218,6 +237,32 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, x int, y int) {
 		client.Position.X = x
 		client.Position.Y = y
 		UDPClients[clientKey] = client
+
+		rdb := services.RedisClient
+
+		// สร้างข้อมูลการเคลื่อนไหว
+		move := models.CharacterMove{
+			Username:      client.Username,      //"testuser123",
+			CharacterName: client.CharacterName, //"DarkWizard",
+			MapNumber:     client.MapNumber,     //0,
+			PosX:          x,
+			PosY:          y,
+			Timestamp:     time.Now(),
+		}
+
+		// แปลง struct เป็น JSON
+		data, err := json.Marshal(move)
+		if err != nil {
+			log.Printf("❌ JSON marshal error: %v", err)
+			return
+		}
+
+		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
+		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
+		if err := rdb.LPush(ctx, redisKey, data).Err(); err != nil {
+			log.Printf("❌ Redis LPUSH error: %v", err)
+			return
+		}
 
 		log.Printf("✅ Updated position for %s to (%d, %d)", client.NetworkID, x, y)
 	} else {

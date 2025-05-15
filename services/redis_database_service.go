@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"maxion-zone4/config"
+	"maxion-zone4/models"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -239,4 +242,60 @@ func SetRedisKeyListValue(key string, value string) error {
 	}
 
 	return nil
+}
+
+func SyncCharacterPositionToCharacterTable(characterName string) error {
+	key := fmt.Sprintf("character:move:%s", characterName)
+
+	// ดึงข้อมูล JSON ล่าสุดจาก Redis
+	jsonStr, err := GetRedisListIndex(key, 0)
+	if err != nil {
+		return fmt.Errorf("redis get error: %w", err)
+	}
+
+	var move models.CharacterMove
+	if err := json.Unmarshal([]byte(jsonStr), &move); err != nil {
+		return fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	// อัปเดต MapNumber, MapPosX, MapPosY ในตาราง Character
+	err = GameDB.Exec(`
+		UPDATE Character
+		SET MapNumber = ?, MapPosX = ?, MapPosY = ?
+		WHERE Name = ?`,
+		move.MapNumber, move.PosX, move.PosY, move.CharacterName,
+	).Error
+
+	if err != nil {
+		return fmt.Errorf("db update error: %w", err)
+	}
+
+	DeleteRedisKey(key)
+
+	log.Printf("✅ Updated position of %s -> Map:%d, X:%d, Y:%d", move.CharacterName, move.MapNumber, move.PosX, move.PosY)
+	return nil
+}
+
+func SyncAllCharacterPositionsToCharacterTable() {
+	keys, err := GetRedisKeysWithPattern("character:move:*")
+	if err != nil {
+		log.Printf("❌ Failed to fetch redis keys: %v", err)
+		return
+	}
+
+	for _, key := range keys {
+		name := strings.TrimPrefix(key, "character:move:")
+		if err := SyncCharacterPositionToCharacterTable(name); err != nil {
+			log.Printf("❌ Failed to sync %s: %v", name, err)
+		}
+	}
+}
+
+func StartCharacterPositionSyncLoop() {
+	ticker := time.NewTicker(30 * time.Second)
+	go func() {
+		for range ticker.C {
+			SyncAllCharacterPositionsToCharacterTable()
+		}
+	}()
 }
