@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"maxion-zone4/models"
+	"maxion-zone4/models/message"
 	"time"
 )
 
@@ -38,16 +39,22 @@ func StartMonsterAI() {
 					nearest := findNearestPlayer(m, players)
 					if nearest != nil && distance(m.Pos, nearest.Pos) <= template.ViewRange {
 
-						log.Printf("🎯 Monster #%d (pos: %d,%d) found player [%s] at (%d,%d), dist: %d",
-							m.ID, m.Pos.X, m.Pos.Y,
-							nearest.Name, nearest.Pos.X, nearest.Pos.Y,
-							distance(m.Pos, nearest.Pos),
-						)
+						// log.Printf("🎯 Monster #%d (pos: %d,%d) found player [%s] at (%d,%d), dist: %d",
+						// 	m.ID, m.Pos.X, m.Pos.Y,
+						// 	nearest.Name, nearest.Pos.X, nearest.Pos.Y,
+						// 	distance(m.Pos, nearest.Pos),
+						// )
 
 						// ✅ ถ้า target เปลี่ยน → อัปเดต
 						if m.Target != nearest.Pos || len(m.Path) == 0 {
 							m.Target = nearest.Pos
 							m.Path = nil // สำคัญ: ล้าง path เพื่อหาใหม่
+						}
+
+						// ⚔️ ถ้าอยู่ในระยะโจมตี
+						if distance(m.Pos, nearest.Pos) <= template.AttackRange {
+							simulateAttack(m, nearest)
+							continue
 						}
 
 						// 🧭 หา path ไปหา player
@@ -195,7 +202,7 @@ func simulateAttack(m *models.Monster, target *Player) {
 	}
 
 	if data, err := json.Marshal(attackPacket); err == nil {
-		SafeSend(target, data)
+		SendUDP(message.SERVER_MESSAGE_MONSTER_ATTACK, string(data))
 		log.Println("📡 MONSTER_ATTACK →", target.Name, "→", damage, "dmg")
 	}
 
