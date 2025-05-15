@@ -229,6 +229,7 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	clientKey := addr.String()
 	x := moveData.Position.X
 	y := moveData.Position.Y
+	zoneID := moveData.MapNumber
 
 	UDPClientsMutex.Lock()
 	defer UDPClientsMutex.Unlock()
@@ -236,6 +237,7 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	if client, exists := UDPClients[clientKey]; exists {
 		client.Position.X = x
 		client.Position.Y = y
+		client.MapNumber = zoneID
 		UDPClients[clientKey] = client
 
 		rdb := services.RedisClient
