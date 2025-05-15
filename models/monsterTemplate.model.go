@@ -9,26 +9,48 @@ import (
 // MonsterTemplate ครอบคลุมทุกข้อมูลที่โหลดจาก IGC_MonsterList.xml
 
 type MonsterTemplate struct {
-	Index         int    `xml:"Index,attr"`         // รหัสไอดีของมอนสเตอร์ (เชื่อมกับระบบ Spawn)
-	Name          string `xml:"Name,attr"`          // ชื่อมอนสเตอร์
-	Level         int    `xml:"Level,attr"`         // เลเวลของมอนสเตอร์ (มีผลต่อ EXP และสเกลความเก่ง)
-	MaxLife       int    `xml:"Life,attr"`          // พลังชีวิตสูงสุด (HP) ของมอนสเตอร์
-	DamageMin     int    `xml:"DamageMin,attr"`     // ค่าดาเมจต่ำสุดที่มอนสเตอร์สามารถทำได้
-	DamageMax     int    `xml:"DamageMax,attr"`     // ค่าดาเมจสูงสุดที่มอนสเตอร์สามารถทำได้
-	Defense       int    `xml:"Defense,attr"`       // ค่าป้องกันกายภาพ ลดดาเมจที่ได้รับจากการโจมตีปกติ
-	MagicDefense  int    `xml:"MagicDefense,attr"`  // ค่าป้องกันเวทย์มนต์ ลดดาเมจที่ได้รับจากการโจมตีเวทย์
-	MoveRange     int    `xml:"MoveRange,attr"`     // ระยะทางสูงสุดที่มอนสเตอร์สามารถเดินออกจากจุดเกิดได้
-	AttackType    int    `xml:"AttackType,attr"`    // ประเภทการโจมตี: 0 = กายภาพ, 1 = เวทย์, 2 = ยิงธนู เป็นต้น
-	AttackRange   int    `xml:"AttackRange,attr"`   // ระยะการโจมตี: 1 = ใกล้, มากกว่า 1 = ระยะไกล
-	ViewRange     int    `xml:"ViewRange,attr"`     // ระยะการตรวจจับเป้าหมาย (เช่น ผู้เล่นที่เข้ามาใกล้)
-	MoveSpeed     int    `xml:"MoveSpeed,attr"`     // ความเร็วในการเคลื่อนที่ (มิลลิวินาทีต่อ 1 ช่อง tile)
-	AttackSpeed   int    `xml:"AttackSpeed,attr"`   // ความเร็วในการโจมตี (มิลลิวินาทีต่อการโจมตีหนึ่งครั้ง)
-	RegenTime     int    `xml:"RegenTime,attr"`     // เวลาที่ใช้ฟื้นคืนชีพหลังจากมอนสเตอร์ตาย (วินาที)
-	Attribute     int    `xml:"Attribute,attr"`     // ธาตุประจำตัวของมอนสเตอร์ (0 = None, 1 = Fire, 2 = Water, ฯลฯ)
-	ItemDropRate  int    `xml:"ItemDropRate,attr"`  // อัตราการดรอปไอเท็ม (ยิ่งสูงยิ่งมีโอกาสดรอปมากขึ้น)
-	MoneyDropRate int    `xml:"MoneyDropRate,attr"` // อัตราการดรอปเงิน (Zen) เมื่อมอนสเตอร์ตาย
-	MaxItemLevel  int    `xml:"MaxItemLevel,attr"`  // เลเวลสูงสุดของไอเท็มที่มอนสเตอร์สามารถดรอปได้
-	IndexStr      string `xml:"IndexStr,attr"`      // (เพิ่มเติมเอง) เก็บ Index แบบ string (ใช้ตอน parse XML ที่บางไฟล์อาจเป็น string)
+	Index                  int    `xml:"Index,attr"`
+	IsTrap                 int    `xml:"IsTrap,attr"`
+	Name                   string `xml:"Name,attr"`
+	Level                  int    `xml:"Level,attr"`
+	HP                     int    `xml:"HP,attr"`
+	MP                     int    `xml:"MP,attr"`
+	DamageMin              int    `xml:"DamageMin,attr"`
+	DamageMax              int    `xml:"DamageMax,attr"`
+	ExtraDamageMin         int    `xml:"ExtraDamageMin,attr"`
+	ExtraDamageMax         int    `xml:"ExtraDamageMax,attr"`
+	Defense                int    `xml:"Defense,attr"`
+	MagicDefense           int    `xml:"MagicDefense,attr"`
+	ExtraDefense           int    `xml:"ExtraDefense,attr"`
+	AttackRate             int    `xml:"AttackRate,attr"`
+	BlockRate              int    `xml:"BlockRate,attr"`
+	MoveRange              int    `xml:"MoveRange,attr"`
+	AttackType             int    `xml:"AttackType,attr"`
+	AttackRange            int    `xml:"AttackRange,attr"`
+	ViewRange              int    `xml:"ViewRange,attr"`
+	MoveSpeed              int    `xml:"MoveSpeed,attr"`
+	AttackSpeed            int    `xml:"AttackSpeed,attr"`
+	RegenTime              int    `xml:"RegenTime,attr"`
+	Attribute              int    `xml:"Attribute,attr"`
+	IceRes                 int    `xml:"IceRes,attr"`
+	PoisonRes              int    `xml:"PoisonRes,attr"`
+	LightRes               int    `xml:"LightRes,attr"`
+	FireRes                int    `xml:"FireRes,attr"`
+	PentagramMainAttrib    int    `xml:"PentagramMainAttrib,attr"`
+	PentagramAttribPattern int    `xml:"PentagramAttribPattern,attr"`
+	PentagramDamageMin     int    `xml:"PentagramDamageMin,attr"`
+	PentagramDamageMax     int    `xml:"PentagramDamageMax,attr"`
+	PentagramAttackRate    int    `xml:"PentagramAttackRate,attr"`
+	PentagramDefenseRate   int    `xml:"PentagramDefenseRate,attr"`
+	PentagramDefense       int    `xml:"PentagramDefense,attr"`
+	EliteMonster           int    `xml:"EliteMonster,attr"`
+	PunishImmune           int    `xml:"PunishImmune,attr"`
+	DamageAbsorption       int    `xml:"DamageAbsorption,attr"`
+	CriticalDamageRes      int    `xml:"CriticalDamageRes,attr"`
+	ExcellentDamageRes     int    `xml:"ExcellentDamageRes,attr"`
+	DebuffApplyRes         int    `xml:"DebuffApplyRes,attr"`
+	DamageCorrection       int    `xml:"DamageCorrection,attr"`
+	ExpLevel               int    `xml:"ExpLevel,attr"`
 }
 
 type monsterListXML struct {

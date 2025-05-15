@@ -30,8 +30,8 @@ func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.Mons
 			TargetY:            byte(m.Target.Y),
 			Direction:          0, // เพิ่มระบบหมุนได้ภายหลัง
 			Level:              template.Level,
-			MaxLife:            template.MaxLife,
-			CurrentLife:        template.MaxLife,
+			MaxLife:            template.HP,
+			CurrentLife:        template.HP,
 			PentagramAttribute: byte(template.Attribute),
 			Name:               template.Name,
 		},

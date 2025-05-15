@@ -37,7 +37,11 @@ func StartMonsterAI() {
 					// 👁️ หา player ใกล้ที่สุดใน ViewRange
 					nearest := findNearestPlayer(m, players)
 					if nearest != nil && distance(m.Pos, nearest.Pos) <= template.ViewRange {
-						m.Target = nearest.Pos
+						// ✅ ถ้า target เปลี่ยน → อัปเดต
+						if m.Target != nearest.Pos {
+							m.Target = nearest.Pos
+							m.Path = nil // สำคัญ: ล้าง path เพื่อหาใหม่
+						}
 
 						// ⚔️ ถ้าอยู่ในระยะโจมตี
 						if distance(m.Pos, nearest.Pos) <= template.AttackRange {
