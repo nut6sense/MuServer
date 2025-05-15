@@ -94,9 +94,34 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 }
 
 func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
-	packet := BuildMonsterGroupMovePacket(monsters)
+	type MoveData struct {
+		MonsterID int `json:"monsterId"`
+		X         int `json:"x"`
+		Y         int `json:"y"`
+		Index     int `json:"index"` // ✅ ใส่ไว้เพื่อใช้ render sprite หรือ AI ฝั่ง client
+	}
+
+	var moves []MoveData
+	for _, m := range monsters {
+		moves = append(moves, MoveData{
+			MonsterID: m.ID,
+			X:         m.Pos.X,
+			Y:         m.Pos.Y,
+			Index:     m.Index,
+		})
+	}
+
+	jsonData, err := json.Marshal(moves)
+	if err != nil {
+		log.Printf("❌ JSON marshal error: %v", err)
+		return
+	}
+
+	for _, p := range GetPlayersInZone(zoneID) {
+		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+	}
+
 	log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)
-	SendToPlayersInZone(zoneID, packet)
 }
 
 func BuildMonsterGroupMovePacket(monsters []*models.Monster) []byte {
