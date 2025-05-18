@@ -33,6 +33,8 @@ type Monster struct {
 	LastMoveTime   time.Time     // เวลาที่เดินครั้งล่าสุด
 	MoveDelay      time.Duration // ความถี่ในการเดิน (เช่น 400–800ms)
 	LastAttackTime time.Time
+	Dead           bool
+	DeathTime      time.Time
 }
 
 func (m *Monster) MoveStep(template *MonsterTemplate) {
@@ -51,6 +53,7 @@ func (m *Monster) MoveStep(template *MonsterTemplate) {
 	// ✅ ล้าง path หากเดินหมด
 	if len(m.Path) == 0 {
 		m.Path = nil
+		m.Target = Vec2{}
 	}
 }
 

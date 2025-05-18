@@ -21,9 +21,9 @@ func SpawnMonstersFromSpawnData(spawnMaps []models.MonsterSpawnMapXML) {
 				template := MonsterTemplates[entry.Index]
 				for i := 0; i < entry.Count; i++ {
 					pos := getRandomWalkableInArea(tileMap, entry.StartX, entry.StartY, entry.EndX, entry.EndY)
-					target := getRandomWalkableInArea(tileMap, entry.StartX, entry.StartY, entry.EndX, entry.EndY)
+					// target := getRandomWalkableInArea(tileMap, entry.StartX, entry.StartY, entry.EndX, entry.EndY)
 
-					m := models.NewMonster(entry.Index, pos, target)
+					m := models.NewMonster(entry.Index, pos, models.Vec2{})
 					AddMonster(zone.Number, m)
 					BroadcastMonsterToZone(zone.Number, m, template)
 				}

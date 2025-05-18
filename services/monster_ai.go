@@ -35,101 +35,74 @@ func StartMonsterAI() {
 						continue
 					}
 
+					now := time.Now()
+
 					// 👁️ หา player ใกล้ที่สุดใน ViewRange
 					nearest := findNearestPlayer(m, players)
 					if nearest != nil && distance(m.Pos, nearest.Pos) <= template.ViewRange {
-
-						// log.Printf("🎯 Monster #%d (pos: %d,%d) found player [%s] at (%d,%d), dist: %d",
-						// 	m.ID, m.Pos.X, m.Pos.Y,
-						// 	nearest.Name, nearest.Pos.X, nearest.Pos.Y,
-						// 	distance(m.Pos, nearest.Pos),
-						// )
-
-						// ✅ ถ้า target เปลี่ยน → อัปเดต
+						// ✅ เปลี่ยน target เฉพาะเมื่อระยะเปลี่ยน
 						if m.Target != nearest.Pos || len(m.Path) == 0 {
 							m.Target = nearest.Pos
-							m.Path = nil // สำคัญ: ล้าง path เพื่อหาใหม่
+							m.Path = nil
 						}
 
-						// ⚔️ ถ้าอยู่ในระยะโจมตี
-						// if distance(m.Pos, nearest.Pos) <= template.AttackRange {
-						// 	simulateAttack(m, nearest)
-						// 	continue
-						// }
+						// ⚔️ แยก logic โจมตีออกจากการเดิน
 						if distance(m.Pos, nearest.Pos) <= template.AttackRange {
 							cooldown := attackSpeedToCooldownMs(template.AttackSpeed)
 							if time.Since(m.LastAttackTime) >= cooldown {
 								simulateAttack(m, nearest)
-								m.LastAttackTime = time.Now()
-							}
-							// ❗ ไม่ใส่ continue → ให้เดินด้วยถ้าอยู่ใน path
-						}
+								m.LastAttackTime = now
 
-						// 🧭 หา path ไปหา player
-						if len(m.Path) == 0 {
-							path := models.FindPath(m.Pos, m.Target, tileMap)
-							log.Printf("🧭 Monster #%d path to player length: %d", m.ID, len(path))
-							if len(path) > 1 {
-								m.Path = path
-							} else {
-								log.Printf("⚠️ Monster %d path too short (%d), fallback to random", m.ID, len(path))
-								m.Path = nil             // reset เพื่อให้สุ่มรอบถัดไป
-								m.Target = models.Vec2{} // ✅ จุดสำคัญที่สุด
+								// ❗ หยุดเดินเพื่อให้ตีต่อเนื่อง
+								m.Path = nil
+								continue
 							}
 						}
-						// continue
 					}
 
-					// 🔄 ถ้าไม่มีเป้าหมาย หรือ path เดินหมด → สุ่มเป้าหมายใหม่
-					if len(m.Path) == 0 {
-						tx, ty := getRandomWalkableWithinRange(tileMap, m.SpawnPos, template.MoveRange)
-						newTarget := models.Vec2{X: tx, Y: ty}
-
-						if m.Pos == newTarget {
-							continue
-						}
-
-						m.Target = newTarget
+					// 🧭 หา path ไปหา target (player หรือเป้าสุ่ม)
+					if len(m.Path) == 0 && m.Target != (models.Vec2{}) {
 						path := models.FindPath(m.Pos, m.Target, tileMap)
 						if len(path) > 1 {
 							m.Path = path
 						} else {
-							log.Printf("⚠️ Monster %d path too short (%d), fallback to random", m.ID, len(path))
-							m.Path = nil             // reset เพื่อให้สุ่มรอบถัดไป
-							m.Target = models.Vec2{} // ✅ จุดสำคัญที่สุด
+							m.Path = nil
+							m.Target = models.Vec2{}
 						}
 					}
 
-					// 👀 ตรวจผู้เล่นใกล้ zone เพื่อตัดสินใจ broadcast
-					// const sightRange = 50
-					// hasNearbyPlayer := false
-					// for _, p := range players {
-					// 	if distance(m.Pos, p.Pos) <= sightRange {
-					// 		hasNearbyPlayer = true
-					// 		break
-					// 	}
-					// }
+					// 🔄 fallback → สุ่มเป้าหมายเมื่อไม่มี path และไม่มีเป้าหมาย
+					if len(m.Path) == 0 && m.Target == (models.Vec2{}) {
+						if rand.Intn(100) < 10 {
+							continue // นิ่งบางรอบ
+						}
 
-					// หยุดเฉพาะตอนยังไม่มี path เท่านั้น
-					if len(m.Path) == 0 && rand.Intn(30) == 0 {
-						continue
+						tx, ty := getRandomWalkableWithinRange(tileMap, m.SpawnPos, template.MoveRange)
+						if tx >= 0 && ty >= 0 {
+							newTarget := models.Vec2{X: tx, Y: ty}
+							if newTarget != m.Pos {
+								m.Target = newTarget
+								path := models.FindPath(m.Pos, m.Target, tileMap)
+								if len(path) > 1 {
+									m.Path = path
+								} else {
+									m.Path = nil
+									m.Target = models.Vec2{}
+								}
+							}
+						}
 					}
 
-					// if len(m.Path) == 0 {
-					// 	continue
-					// }
-
-					now := time.Now()
+					// 👣 เดินไปตาม path
 					if len(m.Path) > 0 && now.Sub(m.LastMoveTime) >= m.MoveDelay {
-						// log.Printf("👣 Monster #%d moving along path (steps: %d)", m.ID, len(m.Path))
 						m.MoveStep(template)
 						m.LastMoveTime = now
-
 						movedMonsters[zoneID] = append(movedMonsters[zoneID], m)
 					}
 				}
 			}
-			// ✅ รวมส่ง movement ทีเดียวต่อ zone
+
+			// ✅ รวมส่ง movement ต่อ zone
 			for zoneID, list := range movedMonsters {
 				if len(list) > 0 {
 					BroadcastMonsterGroupMoveToZone(zoneID, list)
@@ -187,18 +160,25 @@ func findNearestPlayer(m *models.Monster, players []*Player) *Player {
 
 // โจมตีผู้เล่น → ลด HP → ส่ง Packet → ถ้าตายให้ broadcast
 func simulateAttack(m *models.Monster, target *Player) {
+	target.CurrentLife = target.MaxLife
+
 	if target.CurrentLife <= 0 {
 		return
 	}
 
+	// สุ่มความเสียหาย
 	damage := rand.Intn(50) + 10
 	target.CurrentLife -= damage
+
+	// ❗ ป้องกัน HP ติดลบ
 	if target.CurrentLife < 0 {
-		// target.CurrentLife = 0
+		target.CurrentLife = 0
 	}
 
+	// log การโจมตี
 	fmt.Printf("💢 Monster %d โจมตี Player %s → %d dmg (HP: %d)\n", m.ID, target.Name, damage, target.CurrentLife)
 
+	// สร้างแพ็กเกจการโจมตี
 	attackPacket := map[string]any{
 		"type": "MONSTER_ATTACK",
 		"payload": map[string]any{
@@ -209,13 +189,19 @@ func simulateAttack(m *models.Monster, target *Player) {
 		},
 	}
 
+	// ส่งแพ็กเกจไปยัง player ที่โดน
 	if data, err := json.Marshal(attackPacket); err == nil {
 		SendUDP(message.SERVER_MESSAGE_MONSTER_ATTACK, string(data))
 		log.Println("📡 MONSTER_ATTACK →", target.Name, "→", damage, "dmg")
 	}
 
+	// ❗ แจ้งว่า player ตาย ถ้า HP หมด
 	if target.CurrentLife == 0 {
+		log.Printf("💀 Player %s ตายจาก Monster %d", target.Name, m.ID)
 		// broadcastPlayerDeath(target)
+
+		// Optional: Mark ว่า player ตาย
+		// target.Alive = false
 	}
 }
 
@@ -251,7 +237,8 @@ func getRandomWalkableWithinRange(tileMap [][]models.Tile, center models.Vec2, m
 		}
 	}
 	// fallback ถ้าหาไม่ได้
-	return center.X, center.Y
+	// return center.X, center.Y
+	return -1, -1
 }
 
 func attackSpeedToCooldownMs(atkSpeed int) time.Duration {
