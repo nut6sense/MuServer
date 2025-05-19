@@ -99,8 +99,16 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 	PlayerManager.Players[player.ID] = player
 	jsonPlayer, _ := json.MarshalIndent(player, "", "  ")
 	fmt.Println("Player Login (json):", string(jsonPlayer))
+}
 
-	// PlayerInZoneChecked(zoneID)
+func RemovePlayer(username string) {
+	player, ok := PlayerManager.Players[username]
+	if !ok {
+		fmt.Printf("⚠️ Player %s not found\n", username)
+		return
+	}
+	delete(PlayerManager.Players, username)
+	fmt.Printf("👋 Player %s (Zone %d) has logged out and was removed\n", player.Name, player.ZoneID)
 }
 
 func PlayerInZoneChecked(zoneID int) {
