@@ -305,7 +305,16 @@ func MonsterDeath(body string) {
 	}
 
 	jsonData, _ := json.Marshal(data)
-	SendUDP(message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, string(jsonData))
+
+	playersInZone := GetPlayersInZone(zoneID)
+	for _, other := range playersInZone {
+		if other.Send != nil {
+			err := SendUDP(message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, string(jsonData))
+			if err != nil {
+				fmt.Printf("❌ Error Return Monster Death to %s: %v\n", other.Name, err)
+			}
+		}
+	}
 }
 
 func CheckMonsterRespawnGrouped() {
