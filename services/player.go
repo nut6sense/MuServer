@@ -173,13 +173,17 @@ func PlayEquippedItem(body string) {
 		return
 	}
 
-	playersInZone := GetPlayersInZone(player.ZoneID)
-	for _, other := range playersInZone {
-		if other.Send != nil {
-			err := SendUDP(message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
-			if err != nil {
-				fmt.Printf("❌ Error sending equipped item to %s: %v\n", other.Name, err)
-			}
+	BroadcastUDPToZonePlayers(player.ZoneID, message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
+}
+
+func BroadcastUDPToZonePlayers(zoneID int, header int, body string) {
+	for _, p := range PlayerManager.Players {
+		if p.ZoneID != zoneID {
+			continue
+		}
+
+		if err := SendUDPToPlayer(header, body, p); err != nil {
+			log.Printf("❌ SendUDPToPlayer failed for %s: %v", p.Name, err)
 		}
 	}
 }
