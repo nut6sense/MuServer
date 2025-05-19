@@ -63,7 +63,14 @@ func main() {
 
 	fmt.Println("Servers are running...")
 
-	// go character.CharacterSelect("Admin,0,Mankjon", "Admin")
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for range ticker.C {
+			for i := 0; i < 4; i++ {
+				services.PlayerInZoneChecked(i)
+			}
+		}
+	}()
 
 	select {}
 }

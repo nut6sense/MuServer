@@ -7,7 +7,6 @@ import (
 	"maxion-zone4/models"
 	databaseModel "maxion-zone4/models/database"
 	"maxion-zone4/models/message"
-	"time"
 )
 
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
@@ -101,17 +100,25 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 	jsonPlayer, _ := json.MarshalIndent(player, "", "  ")
 	fmt.Println("Player Login (json):", string(jsonPlayer))
 
-	PlayerInZoneChecked(zoneID)
+	// PlayerInZoneChecked(zoneID)
 }
 
 func PlayerInZoneChecked(zoneID int) {
-	go func() {
-		for {
-			if len(GetPlayersInZone(zoneID)) == 0 {
-				log.Printf("Player 0")
-			}
-			fmt.Printf("Broadcasting to %d Players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
-			time.Sleep(10 * time.Second)
-		}
-	}()
+	var zoneNames = map[int]string{
+		0: "Lorencia",
+		1: "Dungeon",
+		2: "Devias",
+		3: "Noria",
+	}
+
+	zoneName, ok := zoneNames[zoneID]
+	if !ok {
+		zoneName = "Unknown"
+	}
+
+	if len(GetPlayersInZone(zoneID)) == 0 {
+		log.Printf("Player 0")
+	}
+
+	fmt.Printf("👤 %d Players Online in 🗺️ Zone %d (%s)\n", len(GetPlayersInZone(zoneID)), zoneID, zoneName)
 }
