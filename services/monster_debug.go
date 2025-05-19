@@ -11,10 +11,12 @@ import (
 // MonsterTemplates เก็บข้อมูลมอนสเตอร์ที่โหลดจาก IGC_MonsterList.xml
 var MonsterTemplates = make(map[int]*models.MonsterTemplate)
 
-var MonsterManager = struct {
+type MonsterManagerStruct struct {
 	mu       sync.RWMutex
 	monsters map[int][]*models.Monster
-}{
+}
+
+var MonsterManager = &MonsterManagerStruct{
 	monsters: make(map[int][]*models.Monster),
 }
 
@@ -70,5 +72,19 @@ func LoadAllMonsterTemplates() error {
 	}
 
 	fmt.Println("✅ Loaded", len(MonsterTemplates), "monster templates.")
+	return nil
+}
+
+func (mm *MonsterManagerStruct) GetMonsterByID(id int) *models.Monster {
+	mm.mu.RLock()
+	defer mm.mu.RUnlock()
+
+	for _, list := range mm.monsters {
+		for _, m := range list {
+			if m.ID == id {
+				return m
+			}
+		}
+	}
 	return nil
 }

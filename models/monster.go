@@ -21,20 +21,35 @@ type Vec2 struct {
 }
 
 type Monster struct {
-	ID             int
-	Index          int
-	Pos            Vec2
-	Target         Vec2
-	Path           []Vec2
-	SpawnPos       Vec2
-	Alive          bool
-	WalkRemain     int // จำนวนก้าวที่ยังเหลือ
-	SpawnArea      MonsterSpawnEntry
-	LastMoveTime   time.Time     // เวลาที่เดินครั้งล่าสุด
-	MoveDelay      time.Duration // ความถี่ในการเดิน (เช่น 400–800ms)
-	LastAttackTime time.Time
-	Dead           bool
-	DeathTime      time.Time
+	ID             int               // ID ของมอนสเตอร์ (ไม่ซ้ำ)
+	Index          int               // อ้างอิง MonsterTemplate
+	Pos            Vec2              // ตำแหน่งปัจจุบัน
+	Target         Vec2              // ตำแหน่งเป้าหมาย
+	Path           []Vec2            // เส้นทางที่ต้องเดิน
+	SpawnPos       Vec2              // ตำแหน่งเกิด
+	Alive          bool              // ยังมีชีวิตอยู่หรือไม่
+	WalkRemain     int               // จำนวนก้าวที่เหลือ (ถ้าใช้)
+	SpawnArea      MonsterSpawnEntry // พื้นที่ spawn
+	LastMoveTime   time.Time         // เวลาเดินล่าสุด
+	MoveDelay      time.Duration     // ดีเลย์ระหว่างการเดิน
+	LastAttackTime time.Time         // เวลาโจมตีล่าสุด
+	DeathTime      time.Time         // เวลาที่ตาย
+}
+
+type MonsterCreatePacket struct {
+	MonsterId          int    `json:"monsterId"` // รหัสมอนสเตอร์ runtime
+	Type               int    `json:"type"`      // Monster Index จาก Template
+	X                  byte   `json:"x"`
+	Y                  byte   `json:"y"`
+	TargetX            byte   `json:"targetX"`
+	TargetY            byte   `json:"targetY"`
+	Direction          byte   `json:"direction"` // 0-7
+	Level              int    `json:"level"`
+	MaxLife            int    `json:"maxLife"`
+	CurrentLife        int    `json:"currentLife"`
+	PentagramAttribute byte   `json:"pentagramMainAttribute"` // ธาตุ (0-4)
+	Name               string `json:"name"`
+	Alive              bool   `json:"alive"`
 }
 
 func (m *Monster) MoveStep(template *MonsterTemplate) {
@@ -345,21 +360,6 @@ func LoadTileMapFromRedis(rdb *redis.Client, ctx context.Context, zone int) ([][
 	}
 
 	return tileMap, nil
-}
-
-type MonsterCreatePacket struct {
-	MonsterId          int    `json:"monsterId"` // รหัสมอนสเตอร์ runtime
-	Type               int    `json:"type"`      // Monster Index จาก Template
-	X                  byte   `json:"x"`
-	Y                  byte   `json:"y"`
-	TargetX            byte   `json:"targetX"`
-	TargetY            byte   `json:"targetY"`
-	Direction          byte   `json:"direction"` // 0-7
-	Level              int    `json:"level"`
-	MaxLife            int    `json:"maxLife"`
-	CurrentLife        int    `json:"currentLife"`
-	PentagramAttribute byte   `json:"pentagramMainAttribute"` // ธาตุ (0-4)
-	Name               string `json:"name"`
 }
 
 var nextMonsterID int = 10000

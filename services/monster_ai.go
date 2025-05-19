@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -246,4 +248,34 @@ func attackSpeedToCooldownMs(atkSpeed int) time.Duration {
 		return 1500 * time.Millisecond // fallback default
 	}
 	return time.Duration(100000/(15*atkSpeed)) * time.Millisecond
+}
+
+func MonsterDeath(body string) {
+
+	parts := strings.Split(body, ",")
+	monsterId := parts[0]
+	zoneID, _ := strconv.Atoi(parts[1])
+
+	id, err := strconv.Atoi(monsterId)
+	if err != nil {
+		log.Printf("❌ Invalid monster ID: %s", body)
+		return
+	}
+
+	// หา Monster ที่มี ID ตรงกับที่ส่งมา
+	m := MonsterManager.GetMonsterByID(id)
+	if m == nil {
+		log.Printf("❌ Monster ID %d not found", id)
+		return
+	}
+
+	// อัปเดตสถานะเป็นตาย
+	m.Alive = false
+	m.DeathTime = time.Now()
+	m.Path = nil
+	m.Target = models.Vec2{}
+
+	log.Printf("💀 Monster %d died at %v", m.ID, m.DeathTime)
+
+	BroadcastMonsterDeath(zoneID, m)
 }

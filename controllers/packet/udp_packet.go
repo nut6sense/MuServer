@@ -30,6 +30,7 @@ var udpPacketHandlers = map[int]func(string){
 	message.USER_MESSAGE_REGISTER_USER:   user_controller.LoginUserUDP,
 	message.USER_MESSAGE_LOGOUT_USER:     user_controller.LogoutUserUDP,
 	message.SERVER_MESSAGE_MONSTER_MOVE:  user_controller.MoveMonsterUDP,
+	message.SERVER_MESSAGE_MONSTER_DEATH: services.MonsterDeath,
 }
 
 type UDPClient struct {

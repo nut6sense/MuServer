@@ -36,6 +36,7 @@ func SendAllMonstersToPlayer(zoneID int, sendFunc func(data []byte)) {
 				CurrentLife:        tpl.HP,
 				PentagramAttribute: byte(tpl.Attribute),
 				Name:               tpl.Name,
+				Alive:              true,
 			},
 		}
 

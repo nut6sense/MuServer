@@ -34,6 +34,7 @@ func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.Mons
 			CurrentLife:        template.HP,
 			PentagramAttribute: byte(template.Attribute),
 			Name:               template.Name,
+			Alive:              true,
 		},
 	}
 
@@ -121,7 +122,7 @@ func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
 		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
 	}
 
-	log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)
+	// log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)
 }
 
 func BuildMonsterGroupMovePacket(monsters []*models.Monster) []byte {
@@ -164,31 +165,22 @@ func SendToPlayersInZone(zoneID int, packet []byte) {
 	}
 }
 
-// func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {
-// 	var list []map[string]interface{}
-// 	for _, m := range monsters {
-// 		list = append(list, map[string]interface{}{
-// 			"id": m.ID,
-// 			"x":  m.Pos.X,
-// 			"y":  m.Pos.Y,
-// 		})
-// 	}
-// 	data, _ := json.Marshal(list)
+func BroadcastMonsterDeath(zoneID int, monster *models.Monster) {
+	data := map[string]interface{}{
+		"type": "MONSTER_DEATH",
+		"payload": map[string]any{
+			"monsterId": monster.ID,
+			"alive":     false,
+		},
+	}
 
-// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, data)
-// }
+	jsonData, _ := json.Marshal(data)
+	BroadcastToPlayersInZoneWithCode(zoneID, message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, jsonData)
+}
 
-// func SendMonsterCreate(player *services.Player, m *models.Monster, template *models.MonsterTemplate) {
-// 	data, _ := json.Marshal(map[string]interface{}{
-// 		"monsterId":   m.ID,
-// 		"type":        m.Index,
-// 		"x":           m.Pos.X,
-// 		"y":           m.Pos.Y,
-// 		"level":       template.Level,
-// 		"name":        template.Name,
-// 		"maxLife":     template.MaxLife,
-// 		"currentLife": template.MaxLife,
-// 	})
-
-// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_CREATE, data)
-// }
+func BroadcastToPlayersInZoneWithCode(zoneID int, msgType int, data []byte) {
+	players := GetPlayersInZone(zoneID)
+	for _, p := range players {
+		p.SendWithCode(msgType, data)
+	}
+}
