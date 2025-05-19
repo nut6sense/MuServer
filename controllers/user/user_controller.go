@@ -33,7 +33,7 @@ func SplitString(input string, delimiter string) []string {
 
 func checkMemberInfoInDatabase(account, password string) bool {
 	var exists bool
-	err := services.GameDB.Raw(`SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.member_info WHERE memb___id = ? AND password = ?) THEN 1 ELSE 0 END`, account, password).Scan(&exists).Error
+	err := services.GameDB.Raw(`SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.member_info WHERE memb___id COLLATE Latin1_General_CS_AS = ? AND password = ?) THEN 1 ELSE 0 END`, account, password).Scan(&exists).Error
 	if err != nil {
 		log.Print("Error in GetCharacterStamina: ", err)
 	}
