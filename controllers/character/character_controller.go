@@ -970,6 +970,9 @@ func LoadMonsterCreate(body string, username string) {
 	parts := strings.Split(body, ",")
 	accountID := parts[0]
 	zoneID, _ := strconv.Atoi(parts[1])
+
+	services.PlayerManager.Players[accountID].ZoneID = zoneID
+
 	// ส่งมอนสเตอร์ทั้งหมดใน zone ไปยัง client หลังเลือกตัวละครสำเร็จ
 	services.SendAllMonstersToPlayer(zoneID, func(dataResponse []byte) {
 		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(dataResponse), accountID)
