@@ -289,14 +289,12 @@ func MonsterDeath(body string) {
 		"payload": map[string]any{
 			"monsterId": m.ID,
 			"alive":     false,
+			"zoneID":    zoneID,
 		},
 	}
 
 	jsonData, _ := json.Marshal(data)
-
-	for _, p := range GetPlayersInZone(zoneID) {
-		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, jsonData)
-	}
+	SendUDP(message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, string(jsonData))
 }
 
 func CheckMonsterRespawnGrouped() {
@@ -344,6 +342,7 @@ func BroadcastMonsterGroupSpawnToZone(zoneID int, monsters []*models.Monster) {
 			"monsterId": m.ID,
 			"x":         m.Pos.X,
 			"y":         m.Pos.Y,
+			"zoneID":    zoneID,
 		})
 	}
 
@@ -353,8 +352,5 @@ func BroadcastMonsterGroupSpawnToZone(zoneID int, monsters []*models.Monster) {
 	}
 
 	jsonData, _ := json.Marshal(data)
-
-	for _, p := range GetPlayersInZone(zoneID) {
-		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_REGEN, jsonData)
-	}
+	SendUDP(message.SERVER_MESSAGE_MONSTER_REGEN, string(jsonData))
 }
