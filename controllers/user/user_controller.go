@@ -527,6 +527,8 @@ func RemoveOnlineUser(body string, username string) {
 	ctx := context.Background()
 	key := fmt.Sprintf("mu:channel:%d:online_users", channelCode)
 
+	services.RemovePlayer(username)
+
 	result, err := services.RedisClient.SRem(ctx, key, username).Result()
 	if err != nil {
 		log.Printf("❌ Redis SRem Error (Channel %d, User %s): %v", channelCode, username, err)
