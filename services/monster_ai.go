@@ -277,5 +277,86 @@ func MonsterDeath(body string) {
 
 	log.Printf("💀 Monster %d died at %v", m.ID, m.DeathTime)
 
-	BroadcastMonsterDeath(zoneID, m)
+	data := map[string]interface{}{
+		"type": "MONSTER_DEATH",
+		"payload": map[string]any{
+			"monsterId": m.ID,
+			"alive":     false,
+		},
+	}
+
+	jsonData, _ := json.Marshal(data)
+
+	for _, p := range GetPlayersInZone(zoneID) {
+		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, jsonData)
+	}
+}
+
+func CheckMonsterRespawnGrouped() {
+	respawnedByZone := make(map[int][]*models.Monster) // zoneID → []*Monster
+
+	for zoneID, monsterList := range MonsterManager.monsters {
+		for _, m := range monsterList {
+			if m.Alive {
+				continue
+			}
+
+			template := MonsterTemplates[m.Index]
+			if template == nil || template.RegenTime <= 0 {
+				continue
+			}
+
+			regenDuration := time.Duration(template.RegenTime) * time.Second
+			if time.Since(m.DeathTime) >= regenDuration {
+				// 💥 รีเซ็ต monster ให้เกิดใหม่
+				m.Alive = true
+				m.Pos = m.SpawnPos
+				m.Target = models.Vec2{}
+				m.Path = nil
+
+				log.Printf("🧟 Monster %d (%s) respawned in zone %d at (%d,%d)", m.ID, template.Name, zoneID, m.Pos.X, m.Pos.Y)
+
+				respawnedByZone[zoneID] = append(respawnedByZone[zoneID], m)
+			}
+		}
+	}
+
+	// 📡 Broadcast ทีละโซน
+	for zoneID, respawned := range respawnedByZone {
+		if len(respawned) > 0 {
+			BroadcastMonsterGroupSpawnToZone(zoneID, respawned)
+		}
+	}
+}
+
+func BroadcastMonsterGroupSpawnToZone(zoneID int, monsters []*models.Monster) {
+	payload := []map[string]interface{}{}
+
+	for _, m := range monsters {
+		payload = append(payload, map[string]interface{}{
+			"monsterId": m.ID,
+			"x":         m.Pos.X,
+			"y":         m.Pos.Y,
+		})
+	}
+
+	data := map[string]interface{}{
+		"type":    "MONSTER_REGEN",
+		"payload": payload,
+	}
+
+	jsonData, _ := json.Marshal(data)
+
+	for _, p := range GetPlayersInZone(zoneID) {
+		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_REGEN, jsonData)
+	}
+}
+
+func CheckMonsterRespawn() {
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			CheckMonsterRespawnGrouped()
+		}
+	}()
 }

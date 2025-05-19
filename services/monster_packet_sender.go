@@ -164,23 +164,3 @@ func SendToPlayersInZone(zoneID int, packet []byte) {
 		player.SendPacket(packet)
 	}
 }
-
-func BroadcastMonsterDeath(zoneID int, monster *models.Monster) {
-	data := map[string]interface{}{
-		"type": "MONSTER_DEATH",
-		"payload": map[string]any{
-			"monsterId": monster.ID,
-			"alive":     false,
-		},
-	}
-
-	jsonData, _ := json.Marshal(data)
-	BroadcastToPlayersInZoneWithCode(zoneID, message.SERVER_MESSAGE_MONSTER_DEATH_RETURN, jsonData)
-}
-
-func BroadcastToPlayersInZoneWithCode(zoneID int, msgType int, data []byte) {
-	players := GetPlayersInZone(zoneID)
-	for _, p := range players {
-		p.SendWithCode(msgType, data)
-	}
-}
