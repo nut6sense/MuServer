@@ -175,8 +175,19 @@ func simulateAttack(m *models.Monster, target *Player) {
 		return
 	}
 
-	// สุ่มความเสียหาย
-	damage := rand.Intn(50) + 10
+	// ✅ ดึง template เพื่อดู DamageMin / DamageMax
+	template := MonsterTemplates[m.Index]
+	if template == nil {
+		log.Printf("❌ Monster template not found for Index %d", m.Index)
+		return
+	}
+
+	// ✅ สุ่ม damage ตาม template
+	damage := template.DamageMin
+	if template.DamageMax > template.DamageMin {
+		damage = rand.Intn(template.DamageMax-template.DamageMin+1) + template.DamageMin
+	}
+
 	target.CurrentLife -= damage
 
 	// ❗ ป้องกัน HP ติดลบ

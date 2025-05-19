@@ -10,9 +10,9 @@ import (
 )
 
 type EquippedItem struct {
-	Slot    string // เช่น "weapon", "helm", "armor"
-	Section int    // หมวดหมู่ของ item เช่น 0 = Sword, 1 = Axe, ...
-	Index   int    // ลำดับ item ในหมวดนั้น เช่น 0 = Short Sword, 1 = Rapier, ...
+	Slot    int // เช่น "weapon", "helm", "armor"
+	Section int // หมวดหมู่ของ item เช่น 0 = Sword, 1 = Axe, ...
+	Index   int // ลำดับ item ในหมวดนั้น เช่น 0 = Short Sword, 1 = Rapier, ...
 }
 
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
@@ -173,9 +173,13 @@ func PlayEquippedItem(body string) {
 		return
 	}
 
-	// ส่งกลับ client
-	err = SendUDP(message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
-	if err != nil {
-		fmt.Printf("❌ Error sending equipped item return to %s: %v\n", packet.Username, err)
+	playersInZone := GetPlayersInZone(player.ZoneID)
+	for _, other := range playersInZone {
+		if other.Send != nil {
+			err := SendUDP(message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
+			if err != nil {
+				fmt.Printf("❌ Error sending equipped item to %s: %v\n", other.Name, err)
+			}
+		}
 	}
 }
