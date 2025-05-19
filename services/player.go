@@ -96,9 +96,21 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 		CurrentLife: int(data.Life),
 		MaxLife:     int(data.MaxLife),
 		Send: func(data []byte) {
-			err := SendUDP(message.SERVER_MESSAGE_MONSTER_MOVE, string(data))
+			var packet map[string]interface{}
+			err := json.Unmarshal(data, &packet)
 			if err != nil {
-				fmt.Printf("❌ MONSTER_MOVE error to %s: %v\n", username, err)
+				fmt.Printf("❌ Failed to parse send packet for %s: %v\n", username, err)
+				return
+			}
+			codeFloat, ok := packet["code"].(float64)
+			if !ok {
+				fmt.Printf("❌ Invalid or missing 'code' field in packet for %s\n", username)
+				return
+			}
+			code := int(codeFloat)
+			errSendUDP := SendUDP(code, string(data))
+			if errSendUDP != nil {
+				fmt.Printf("❌ Send UDP error to %s: %v\n", username, err)
 				// delete(utils.Accounts, username) // ลบ conn ที่ตาย
 			}
 		},
