@@ -112,6 +112,13 @@ func StartMonsterAI() {
 			}
 		}
 	}()
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		for range ticker.C {
+			CheckMonsterRespawnGrouped()
+		}
+	}()
 }
 
 // สุ่มตำแหน่งที่สามารถเดินได้ในแผนที่
@@ -350,13 +357,4 @@ func BroadcastMonsterGroupSpawnToZone(zoneID int, monsters []*models.Monster) {
 	for _, p := range GetPlayersInZone(zoneID) {
 		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_REGEN, jsonData)
 	}
-}
-
-func CheckMonsterRespawn() {
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		for range ticker.C {
-			CheckMonsterRespawnGrouped()
-		}
-	}()
 }
