@@ -266,6 +266,12 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 			return
 		}
 
+		_, ok := services.PlayerManager.Players[client.Username]
+		if !ok {
+			log.Printf("⚠️ Player %s no longer exists in PlayerManager", client.Username)
+			return
+		}
+
 		playerInfo := services.PlayerManager.Players[client.Username]
 		services.PlayerManager.Players[client.Username].CurrentLife = int(playerInfo.MaxLife)
 		services.PlayerManager.Players[client.Username].Pos = models.Vec2{X: x, Y: y}
