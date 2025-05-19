@@ -12,6 +12,7 @@ import (
 	"maxion-zone4/services"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -910,6 +911,18 @@ func CreateCharacter(body string, username string) {
 	svCode := parts[1]
 	charName := parts[2]
 	class := parts[3]
+
+	matched, err := regexp.MatchString(`^[a-zA-Z0-9_ ]+$`, charName)
+	if err != nil {
+		log.Println("Regex error:", err)
+		return
+	}
+
+	if !matched {
+		log.Println("❌ Invalid character name:", charName)
+		services.SendTCPUser(message.USER_MESSAGE_CREATE_CHARACTER_ERROR, "Invalid character name: only A-Z, a-z, 0-9, space, and underscore (_) allowed", username)
+		return
+	}
 
 	fmt.Println("CreateCharacter AccountId: ", accountId)
 	fmt.Println("CreateCharacter ServerCode: ", svCode)
