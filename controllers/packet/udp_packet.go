@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"maxion-zone4/config"
+	"maxion-zone4/controllers/shared"
 	user_controller "maxion-zone4/controllers/user"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
@@ -13,7 +14,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	skill "maxion-zone4/controllers/skill"
@@ -34,23 +34,23 @@ var udpPacketHandlers = map[int]func(string){
 	message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM: services.PlayEquippedItem,
 }
 
-type UDPClient struct {
-	Addr          *net.UDPAddr
-	NetworkID     string
-	Position      Coordinates
-	ClassID       int    // เพิ่ม ClassID เข้าไป
-	Username      string // ชื่อบัญชีผู้เล่น
-	CharacterName string // ชื่อตัวละครในเกม
-	MapNumber     int    // หมายเลขของแผนที่
-}
+// type UDPClient struct {
+// 	Addr          *net.UDPAddr
+// 	NetworkID     string
+// 	Position      Coordinates
+// 	ClassID       int    // เพิ่ม ClassID เข้าไป
+// 	Username      string // ชื่อบัญชีผู้เล่น
+// 	CharacterName string // ชื่อตัวละครในเกม
+// 	MapNumber     int    // หมายเลขของแผนที่
+// }
 
-type Coordinates struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
+// type Coordinates struct {
+// 	X int `json:"x"`
+// 	Y int `json:"y"`
+// }
 
-var UDPClients = make(map[string]UDPClient) // key ยังคงเป็น addr.String() (หรือจะเปลี่ยนเป็น networkID ก็ได้)
-var UDPClientsMutex = sync.RWMutex{}
+// var UDPClients = make(map[string]UDPClient) // key ยังคงเป็น addr.String() (หรือจะเปลี่ยนเป็น networkID ก็ได้)
+// var UDPClientsMutex = sync.RWMutex{}
 
 func ProcessUDP(packet string, addr *net.UDPAddr) {
 
@@ -127,10 +127,10 @@ func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
 		return
 	}
 
-	UDPClientsMutex.RLock()
-	defer UDPClientsMutex.RUnlock()
+	shared.UDPClientsMutex.RLock()
+	defer shared.UDPClientsMutex.RUnlock()
 
-	for _, client := range UDPClients {
+	for _, client := range shared.UDPClients {
 		// ข้าม client ตัวเอง (ผู้ส่ง)
 		if excludeAddr != nil && client.Addr.String() == excludeAddr.String() {
 			continue
@@ -146,10 +146,10 @@ func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
 }
 
 func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
-	UDPClientsMutex.RLock()
-	defer UDPClientsMutex.RUnlock()
+	shared.UDPClientsMutex.RLock()
+	defer shared.UDPClientsMutex.RUnlock()
 
-	for _, client := range UDPClients {
+	for _, client := range shared.UDPClients {
 		if client.Addr.String() == newClientAddr.String() {
 			continue
 		}
@@ -195,8 +195,8 @@ func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
 func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	clientKey := addr.String()
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
 	var data models.RegisterUserDTO
 	err := json.Unmarshal([]byte(body), &data)
@@ -206,7 +206,7 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	}
 
 	// Check if the client is already registered with the same networkID
-	if existingClient, exists := UDPClients[clientKey]; exists {
+	if existingClient, exists := shared.UDPClients[clientKey]; exists {
 		if existingClient.NetworkID == data.ID {
 			log.Println("UDP Client already registered:", data.ID, "@", clientKey)
 			return
@@ -214,10 +214,10 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	}
 
 	// ✅ เพิ่มตำแหน่งที่ส่งมาใน UDPClient
-	UDPClients[clientKey] = UDPClient{
+	shared.UDPClients[clientKey] = &shared.UDPClient{
 		Addr:      addr,
 		NetworkID: data.ID,
-		Position: Coordinates{
+		Position: shared.Coordinates{
 			X: data.Coord.X,
 			Y: data.Coord.Y,
 		},
@@ -238,14 +238,14 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	y := moveData.Position.Y
 	zoneID := moveData.MapNumber
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
-	if client, exists := UDPClients[clientKey]; exists {
+	if client, exists := shared.UDPClients[clientKey]; exists {
 		client.Position.X = x
 		client.Position.Y = y
 		client.MapNumber = zoneID
-		UDPClients[clientKey] = client
+		shared.UDPClients[clientKey] = client
 
 		rdb := services.RedisClient
 
@@ -292,14 +292,14 @@ func RemoveUDPClient(body string) {
 		return
 	}
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
 	// ✅ Loop ผ่าน UDPClients ทั้งหมดเพื่อตรวจสอบ ID
-	for key, client := range UDPClients {
+	for key, client := range shared.UDPClients {
 		if client.NetworkID == data.ID {
 			// ถ้าเจอให้ลบออกจาก Map
-			delete(UDPClients, key)
+			delete(shared.UDPClients, key)
 			log.Printf("✅ Removed UDPClient with ID: %s (Key: %s)", data.ID, key)
 			return
 		}

@@ -4,9 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"maxion-zone4/config"
+	"maxion-zone4/controllers/shared"
 	"maxion-zone4/models"
 	databaseModel "maxion-zone4/models/database"
 	"maxion-zone4/models/message"
+	"net"
+	"strconv"
 )
 
 type EquippedItem struct {
@@ -25,6 +29,7 @@ type Player struct {
 	MaxLife     int          // HP สูงสุด
 	Send        func([]byte) `json:"-"` // ฟังก์ชันส่งข้อมูลกลับ client
 	Equipped    []EquippedItem
+	UDPAddr     *net.UDPAddr
 }
 
 // PlayerManager เก็บผู้เล่นทั้งหมดที่ออนไลน์ในขณะนี้
@@ -95,6 +100,7 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 		Pos:         models.Vec2{X: int(data.MapPosX), Y: int(data.MapPosY)},
 		CurrentLife: int(data.Life),
 		MaxLife:     int(data.MaxLife),
+		UDPAddr:     shared.GetUDPAddrByUsername(username),
 		Send: func(data []byte) {
 			var packet map[string]interface{}
 			err := json.Unmarshal(data, &packet)
@@ -108,10 +114,16 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 				return
 			}
 			code := int(codeFloat)
-			errSendUDP := SendUDP(code, string(data))
-			if errSendUDP != nil {
-				fmt.Printf("❌ Send UDP error to %s: %v\n", username, err)
-				// delete(utils.Accounts, username) // ลบ conn ที่ตาย
+			udpAddr := shared.GetUDPAddrByUsername(username)
+
+			// ✅ ใช้ addr ที่ได้จาก shared
+			if udpAddr != nil {
+				errSend := SendUDPToAddr(code, string(data), udpAddr)
+				if errSend != nil {
+					fmt.Printf("❌ Failed to send UDP to %s: %v\n", username, errSend)
+				}
+			} else {
+				fmt.Printf("⚠️ UDPAddr not found for %s\n", username)
 			}
 		},
 	}
@@ -198,4 +210,15 @@ func BroadcastUDPToZonePlayers(zoneID int, header int, body string) {
 			log.Printf("❌ SendUDPToPlayer failed for %s: %v", p.Name, err)
 		}
 	}
+}
+
+func SendUDPToAddr(header int, body string, addr *net.UDPAddr) error {
+	packet := strconv.Itoa(header) + "|" + body
+	response, err := models.EncryptMessage(packet)
+	if err != nil {
+		return err
+	}
+
+	_, err = config.ConnUDP.WriteToUDP([]byte(response), addr)
+	return err
 }
