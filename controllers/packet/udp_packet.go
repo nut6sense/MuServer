@@ -24,13 +24,14 @@ var udpPacketHandlers = map[int]func(string){
 	message.USER_MESSAGE_DISCONNECT_GO_SERVER: user_controller.DisconnectUser,
 	message.USER_MESSAGE_GET_USE_SKILL:        skill.CharacterUseSkill,
 	//message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
-	message.USER_MESSAGE_GET_USER_MOVE:   user_controller.MoveUserUDP,
-	message.USER_MESSAGE_GET_USER_ATTACK: user_controller.AttackUserUDP,
-	message.USER_MESSAGE_GET_USER_ROTATE: user_controller.RotateUserUDP,
-	message.USER_MESSAGE_REGISTER_USER:   user_controller.LoginUserUDP,
-	message.USER_MESSAGE_LOGOUT_USER:     user_controller.LogoutUserUDP,
-	message.SERVER_MESSAGE_MONSTER_MOVE:  user_controller.MoveMonsterUDP,
-	message.SERVER_MESSAGE_MONSTER_DEATH: services.MonsterDeath,
+	message.USER_MESSAGE_GET_USER_MOVE:          user_controller.MoveUserUDP,
+	message.USER_MESSAGE_GET_USER_ATTACK:        user_controller.AttackUserUDP,
+	message.USER_MESSAGE_GET_USER_ROTATE:        user_controller.RotateUserUDP,
+	message.USER_MESSAGE_REGISTER_USER:          user_controller.LoginUserUDP,
+	message.USER_MESSAGE_LOGOUT_USER:            user_controller.LogoutUserUDP,
+	message.SERVER_MESSAGE_MONSTER_MOVE:         user_controller.MoveMonsterUDP,
+	message.SERVER_MESSAGE_MONSTER_DEATH:        services.MonsterDeath,
+	message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM: services.PlayEquippedItem,
 }
 
 type UDPClient struct {

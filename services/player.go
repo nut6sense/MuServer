@@ -9,6 +9,12 @@ import (
 	"maxion-zone4/models/message"
 )
 
+type EquippedItem struct {
+	Slot    string // เช่น "weapon", "helm", "armor"
+	Section int    // หมวดหมู่ของ item เช่น 0 = Sword, 1 = Axe, ...
+	Index   int    // ลำดับ item ในหมวดนั้น เช่น 0 = Short Sword, 1 = Rapier, ...
+}
+
 // Player แสดงข้อมูลของผู้เล่นขณะออนไลน์ (ไม่ใช่ struct DB)
 type Player struct {
 	ID          string       // ID เฉพาะ session นี้
@@ -18,6 +24,7 @@ type Player struct {
 	CurrentLife int          // HP ปัจจุบัน
 	MaxLife     int          // HP สูงสุด
 	Send        func([]byte) `json:"-"` // ฟังก์ชันส่งข้อมูลกลับ client
+	Equipped    []EquippedItem
 }
 
 // PlayerManager เก็บผู้เล่นทั้งหมดที่ออนไลน์ในขณะนี้
@@ -129,4 +136,46 @@ func PlayerInZoneChecked(zoneID int) {
 	}
 
 	fmt.Printf("👤 %d Players Online in 🗺️ Zone %d (%s)\n", len(GetPlayersInZone(zoneID)), zoneID, zoneName)
+}
+
+// struct สำหรับแปลง JSON
+type EquipPacket struct {
+	Username string         `json:"username"`
+	Equipped []EquippedItem `json:"equipped"`
+}
+
+func PlayEquippedItem(body string) {
+	var packet EquipPacket
+	err := json.Unmarshal([]byte(body), &packet)
+	if err != nil {
+		fmt.Println("❌ Failed to parse equipped data:", err)
+		return
+	}
+
+	player, ok := PlayerManager.Players[packet.Username]
+	if !ok {
+		fmt.Printf("⚠️ Player '%s' not found\n", packet.Username)
+		return
+	}
+
+	// อัปเดตข้อมูลใน player
+	player.Equipped = packet.Equipped
+
+	// สร้างข้อมูลตอบกลับ
+	response := map[string]interface{}{
+		"username": packet.Username,
+		"equipped": packet.Equipped,
+	}
+
+	jsonData, err := json.Marshal(response)
+	if err != nil {
+		fmt.Println("❌ Failed to marshal response:", err)
+		return
+	}
+
+	// ส่งกลับ client
+	err = SendUDP(message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
+	if err != nil {
+		fmt.Printf("❌ Error sending equipped item return to %s: %v\n", packet.Username, err)
+	}
 }
