@@ -340,6 +340,7 @@ func BroadcastMonsterGroupSpawnToZone(zoneID int, monsters []*models.Monster) {
 	for _, m := range monsters {
 		payload = append(payload, map[string]interface{}{
 			"monsterId": m.ID,
+			"alive":     true,
 			"x":         m.Pos.X,
 			"y":         m.Pos.Y,
 			"zoneID":    zoneID,
