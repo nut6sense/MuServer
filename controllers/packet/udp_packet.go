@@ -23,12 +23,13 @@ var udpPacketHandlers = map[int]func(string){
 	message.USER_MESSAGE_1000:                 user_controller.LoginUserUDP,
 	message.USER_MESSAGE_DISCONNECT_GO_SERVER: user_controller.DisconnectUser,
 	message.USER_MESSAGE_GET_USE_SKILL:        skill.CharacterUseSkill,
-	message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
-	message.USER_MESSAGE_GET_USER_MOVE:        user_controller.MoveUserUDP,
-	message.USER_MESSAGE_GET_USER_ATTACK:      user_controller.AttackUserUDP,
-	message.USER_MESSAGE_REGISTER_USER:        user_controller.LoginUserUDP,
-	message.USER_MESSAGE_LOGOUT_USER:          user_controller.LogoutUserUDP,
-	message.SERVER_MESSAGE_MONSTER_MOVE:       user_controller.MoveMonsterUDP,
+	//message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
+	message.USER_MESSAGE_GET_USER_MOVE:   user_controller.MoveUserUDP,
+	message.USER_MESSAGE_GET_USER_ATTACK: user_controller.AttackUserUDP,
+	message.USER_MESSAGE_GET_USER_ROTATE: user_controller.RotateUserUDP,
+	message.USER_MESSAGE_REGISTER_USER:   user_controller.LoginUserUDP,
+	message.USER_MESSAGE_LOGOUT_USER:     user_controller.LogoutUserUDP,
+	message.SERVER_MESSAGE_MONSTER_MOVE:  user_controller.MoveMonsterUDP,
 }
 
 type UDPClient struct {
@@ -103,10 +104,14 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 		resHeader = message.USER_MESSAGE_SET_USER_MOVE_RETURN
 	} else if header == message.USER_MESSAGE_GET_USER_ATTACK {
 		resHeader = message.USER_MESSAGE_SET_USER_ATTACK_RETURN
+	} else if header == message.USER_MESSAGE_GET_USER_ROTATE {
+		resHeader = message.USER_MESSAGE_SET_USER_ROTATE_RETURN
 	} else if header == message.USER_MESSAGE_REGISTER_USER {
 		resHeader = message.USER_MESSAGE_REGISTER_USER_RETURN
 	} else if header == message.USER_MESSAGE_LOGOUT_USER {
 		resHeader = message.USER_MESSAGE_LOGOUT_USER_RETURN
+	} else if header == message.USER_MESSAGE_GET_USE_SKILL {
+		resHeader = message.USER_MESSAGE_SET_USE_SKILL_RETURN
 	}
 
 	BroadcastUDP(resHeader, body, addr)

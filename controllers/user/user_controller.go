@@ -171,6 +171,12 @@ func AttackUserUDP(Body string) {
 	services.SendUDP(message.USER_MESSAGE_SET_USER_ATTACK_RETURN, Body)
 }
 
+func RotateUserUDP(Body string) {
+	fmt.Print("Rotate User UDP: ", Body)
+
+	services.SendUDP(message.USER_MESSAGE_SET_USER_ROTATE_RETURN, Body)
+}
+
 func MoveMonsterUDP(Body string) {
 	fmt.Print("Move Monster UDP: ", Body)
 
