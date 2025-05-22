@@ -33,7 +33,8 @@ type MonsterSpawnConfig struct {
 	Maps    []MonsterSpawnMapXML `xml:"Map"`
 }
 
-func LoadMonsterSpawnFromXML(path string) ([]MonsterSpawnMapXML, error) {
+func LoadMonsterSpawnFromXML() ([]MonsterSpawnMapXML, error) {
+	path := "data/IGC_MonsterSpawn.xml"
 	file, err := os.Open(path)
 	if err != nil {
 		fmt.Printf("❌ Failed to open spawn XML file: %s → %v\n", path, err)

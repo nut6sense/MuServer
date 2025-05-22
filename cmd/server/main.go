@@ -6,6 +6,7 @@ import (
 	"maxion-zone4/config"
 	"maxion-zone4/controllers"
 	"maxion-zone4/controllers/character"
+	"maxion-zone4/internal/logger"
 
 	// inventory_controller "maxion-zone4/controllers/inventory"
 	"maxion-zone4/models"
@@ -16,6 +17,9 @@ import (
 )
 
 func main() {
+	// เรียก Init logger ก่อนใช้งาน
+	logger.Init()
+
 	printChannelInfo()
 
 	loc, err := time.LoadLocation("Asia/Bangkok")
@@ -41,17 +45,27 @@ func main() {
 
 	// ⬇️ โหลด TileMap เข้า Redis หลัง Redis พร้อม
 	if err := models.LoadTileMap(services.RedisClient); err != nil {
-		log.Println("Error loading tile map:", err)
+		msgError := fmt.Sprintf("Error loading tile map: %v", err)
+		log.Println(msgError)
+		logger.LogCritical(msgError)
 	}
 
 	// โหลด TileMap จาก Redis
 	services.LoadTileMapsFromRedis()
-
 	if err := services.LoadAllMonsterTemplates(); err != nil {
-		log.Fatal("Failed to load monster templates:", err)
+		msgError := fmt.Sprintf("Failed to load monster templates: %v", err)
+		log.Println(msgError)
+		logger.LogCritical(msgError)
 	}
 
-	spawnData, _ := models.LoadMonsterSpawnFromXML("data/IGC_MonsterSpawn.xml")
+	// Load Spawn Monster
+	spawnData, err := models.LoadMonsterSpawnFromXML()
+	if err != nil {
+		msgError := fmt.Sprintf("Failed to load monster spawn: %v", err)
+		log.Println(msgError)
+		logger.LogCritical(msgError)
+	}
+
 	services.SpawnMonstersFromSpawnData(spawnData)
 
 	services.PrintMonsterSummary()

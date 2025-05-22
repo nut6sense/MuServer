@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"math/rand"
+	"maxion-zone4/internal/logger"
 	"maxion-zone4/models"
 )
 
@@ -12,7 +13,9 @@ func SpawnMonstersFromSpawnData(spawnMaps []models.MonsterSpawnMapXML) {
 	for _, zone := range spawnMaps {
 		tileMap := TileMapData[zone.Number]
 		if tileMap == nil {
-			fmt.Println("❌ No TileMap for zone", zone.Number)
+			msgError := fmt.Sprintf("❌ No TileMap for zone %d", zone.Number)
+			fmt.Println(msgError)
+			logger.LogError(msgError)
 			continue
 		}
 
@@ -46,7 +49,9 @@ func getRandomWalkableInArea(tileMap [][]models.Tile, sx, sy, ex, ey int) models
 	height := ey - sy + 1
 
 	if width <= 0 || height <= 0 {
-		fmt.Printf("❌ Invalid spawn area: (%d,%d)-(%d,%d)\n", sx, sy, ex, ey)
+		msgError := fmt.Sprintf("❌ Invalid spawn area: (%d,%d)-(%d,%d)\n", sx, sy, ex, ey)
+		fmt.Println(msgError)
+		logger.LogError(msgError)
 		return models.Vec2{X: sx, Y: sy}
 	}
 

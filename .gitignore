@@ -3,3 +3,4 @@ docker-compose.local.yaml
 lua/*.gui
 *.bat
 *.exe
+logs/*

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
+	"maxion-zone4/internal/logger"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
 	"sync"
@@ -12,7 +12,9 @@ import (
 
 func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.MonsterTemplate) {
 	if template == nil {
-		fmt.Println("❌ Broadcast failed: template is nil for monster ID", m.ID, "Index", m.Index)
+		msgError := fmt.Sprintf("❌ Broadcast failed: template is nil for monster ID", m.ID, "Index", m.Index)
+		fmt.Println(msgError)
+		logger.LogError(msgError)
 		return
 	}
 
@@ -40,7 +42,9 @@ func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.Mons
 
 	jsonData, err := json.Marshal(packet)
 	if err != nil {
-		fmt.Println("❌ Failed to marshal monster packet:", err)
+		msgError := fmt.Sprintf("❌ Failed to marshal monster packet: %v", err)
+		fmt.Println(msgError)
+		logger.LogError(msgError)
 		return
 	}
 
@@ -114,7 +118,9 @@ func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
 
 	jsonData, err := json.Marshal(moves)
 	if err != nil {
-		log.Printf("❌ JSON marshal error: %v", err)
+		msgError := fmt.Sprintf("❌ JSON marshal error: %v", err)
+		fmt.Println(msgError)
+		logger.LogError(msgError)
 		return
 	}
 

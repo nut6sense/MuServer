@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"maxion-zone4/config"
+	"maxion-zone4/internal/logger"
 	"maxion-zone4/models"
 	"strings"
 	"time"
@@ -258,6 +259,10 @@ func SyncCharacterPositionToCharacterTable(characterName string) error {
 		return fmt.Errorf("unmarshal error: %w", err)
 	}
 
+	// Log Query Message
+	sqlString := fmt.Sprintf(`UPDATE Character SET MapNumber = %d, MapPosX = %d, MapPosY = %d WHERE Name = '%s'`, move.MapNumber, move.PosX, move.PosY, move.CharacterName)
+	logger.LogSql(sqlString)
+
 	// อัปเดต MapNumber, MapPosX, MapPosY ในตาราง Character
 	err = GameDB.Exec(`
 		UPDATE Character
@@ -279,14 +284,18 @@ func SyncCharacterPositionToCharacterTable(characterName string) error {
 func SyncAllCharacterPositionsToCharacterTable() {
 	keys, err := GetRedisKeysWithPattern("character:move:*")
 	if err != nil {
-		log.Printf("❌ Failed to fetch redis keys: %v", err)
+		msgError := fmt.Sprintf("❌ Failed to fetch redis keys: %v", err)
+		log.Println(msgError)
+		logger.LogError(msgError)
 		return
 	}
 
 	for _, key := range keys {
 		name := strings.TrimPrefix(key, "character:move:")
 		if err := SyncCharacterPositionToCharacterTable(name); err != nil {
-			log.Printf("❌ Failed to sync %s: %v", name, err)
+			msgError := fmt.Sprintf("❌ Failed to sync %s: %v", name, err)
+			log.Println(msgError)
+			logger.LogError(msgError)
 		}
 	}
 }
