@@ -1,7 +1,9 @@
 package packet
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -117,6 +119,48 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 	}
 
 	BroadcastUDP(resHeader, body, addr)
+}
+
+func ProcessUDPByte(packet []byte, addr *net.UDPAddr) {
+
+	if len(packet) < 4 {
+		log.Println("❌ Packet too short to contain header")
+		return
+	}
+
+	// ✅ 1. แกะ header (4 ไบต์แรก)
+	var header int32
+	headerBuf := bytes.NewReader(packet[:4])
+	if err := binary.Read(headerBuf, binary.LittleEndian, &header); err != nil {
+		log.Println("❌ Failed to parse header from packet:", err)
+		return
+	}
+
+	// ✅ 2. แยก body (ส่วนที่เหลือหลัง 4 ไบต์)
+	body := packet[4:]
+
+	log.Printf("📩 Received packet from %s: Header = %d, BodyLength = %d bytes", addr.String(), header, len(body))
+
+	// 🔁 ส่งไปให้ฟังก์ชันที่รองรับ header นี้
+	switch int(header) {
+	case message.USER_MESSAGE_GET_USER_MOVE:
+		user_controller.MoveUserUDPTestPack(body)
+		break
+	case message.USER_MESSAGE_GET_USER_ATTACK:
+		user_controller.AttackUserUDPTestPack(body)
+		break
+	case message.USER_MESSAGE_GET_USER_ROTATE:
+		user_controller.RotateUserUDPTestPack(body)
+		break
+	case message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM:
+		services.PlayEquippedItemTestBytes(body)
+	// เพิ่ม case อื่น ๆ ได้ตามต้องการ
+	default:
+		log.Printf("⚠️ Unknown header: %d", header)
+		break
+	}
+
+	//user_controller.MoveUserUDPTestPack(packet)
 }
 
 func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {

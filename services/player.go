@@ -200,6 +200,12 @@ func PlayEquippedItem(body string) {
 	BroadcastUDPToZonePlayers(player.ZoneID, message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
 }
 
+func PlayEquippedItemTestBytes(body []byte) {
+
+	//BroadcastUDPToZonePlayersBytes(player.ZoneID, message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, string(jsonData))
+	SendUDPByte(message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM_RETURN, body)
+}
+
 func BroadcastUDPToZonePlayers(zoneID int, header int, body string) {
 	for _, p := range PlayerManager.Players {
 		if p.ZoneID != zoneID {

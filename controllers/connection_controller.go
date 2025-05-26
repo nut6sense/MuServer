@@ -156,13 +156,24 @@ func StartUDPServer() {
 		// Check if the message is Base64 encoded
 		if !IsBase64(encryptedMessage) {
 			log.Println("Invalid Base64 message")
-			return
+			//return
+
+			decryptedbyte, err := models.DecryptBytes(buffer[:n])
+			if err != nil {
+				log.Println("Error decrypting message:", err)
+				return
+				//decryptedMessage = encryptedMessage
+			}
+
+			packet.ProcessUDPByte(decryptedbyte, clientAddr)
+			continue
 		}
 
 		decryptedMessage, err := models.DecryptMessage(encryptedMessage)
 		if err != nil {
 			log.Println("Error decrypting message:", err)
 			return
+			//decryptedMessage = encryptedMessage
 		}
 
 		// Process the packet

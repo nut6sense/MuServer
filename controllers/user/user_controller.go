@@ -103,6 +103,7 @@ func LogoutUserUDP(Body string) {
 }
 
 func MoveUserUDP(Body string) {
+
 	var moveData models.MoveDataDTO
 	err := json.Unmarshal([]byte(Body), &moveData)
 	if err != nil {
@@ -115,34 +116,6 @@ func MoveUserUDP(Body string) {
 		fmt.Println("⚠️ Player not found:", moveData.OwnerID)
 		return
 	}
-
-	// zoneID := player.ZoneID
-	// tileMap, ok := services.TileMapData[zoneID]
-	// if !ok {
-	// 	fmt.Println("⚠️ No tile map found for zone:", zoneID)
-	// 	return
-	// }
-
-	// start := player.Pos
-	// target := models.Vec2{
-	// 	X: int(moveData.Position.X),
-	// 	Y: int(moveData.Position.Y),
-	// }
-
-	// Pathfinding
-	// path := models.FindPath(start, target, tileMap)
-	// if len(path) == 0 {
-	// 	fmt.Printf("❌ No valid path from %v to %v\n", start, target)
-	// 	return
-	// }
-
-	// player.Pos = path[len(path)-1] // Update player position to the last step in the path
-
-	// // สร้าง Coords สำหรับตอบกลับ
-	// coords := make([]models.CoordDTO, len(path))
-	// for i, step := range path {
-	// 	coords[i] = models.CoordDTO{X: step.X, Y: step.Y}
-	// }
 
 	// ส่งข้อมูลเดิมเพื่อให้การเคลื่อนที่ๆถูกต้อง
 	coords := moveData.Coords
@@ -165,16 +138,34 @@ func MoveUserUDP(Body string) {
 	fmt.Printf("📤 Sent move response to player %s\n", player.Name)
 }
 
+func MoveUserUDPTestPack(packet []byte) {
+
+	// ส่งกลับ client
+	services.SendUDPByte(message.USER_MESSAGE_SET_USER_MOVE_RETURN, packet)
+	fmt.Printf("📤 Sent move response to player ")
+}
+
 func AttackUserUDP(Body string) {
 	fmt.Print("Attack User UDP: ", Body)
 
 	services.SendUDP(message.USER_MESSAGE_SET_USER_ATTACK_RETURN, Body)
 }
 
+func AttackUserUDPTestPack(packet []byte) {
+
+	services.SendUDPByte(message.USER_MESSAGE_SET_USER_ATTACK_RETURN, packet)
+}
+
 func RotateUserUDP(Body string) {
 	fmt.Print("Rotate User UDP: ", Body)
 
 	services.SendUDP(message.USER_MESSAGE_SET_USER_ROTATE_RETURN, Body)
+}
+
+func RotateUserUDPTestPack(packet []byte) {
+	fmt.Print("Rotate User UDP: ", packet)
+
+	services.SendUDPByte(message.USER_MESSAGE_SET_USER_ROTATE_RETURN, packet)
 }
 
 func MoveMonsterUDP(Body string) {
