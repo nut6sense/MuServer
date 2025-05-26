@@ -1,8 +1,10 @@
 package services
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
 	"sync"
@@ -28,10 +30,11 @@ func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.Mons
 			TargetY:            byte(m.Target.Y),
 			Direction:          0, // เพิ่มระบบหมุนได้ภายหลัง
 			Level:              template.Level,
-			MaxLife:            template.MaxLife,
-			CurrentLife:        template.MaxLife,
+			MaxLife:            template.HP,
+			CurrentLife:        template.HP,
 			PentagramAttribute: byte(template.Attribute),
 			Name:               template.Name,
+			Alive:              true,
 		},
 	}
 
@@ -68,6 +71,16 @@ func BroadcastToZone(zoneID int, data []byte) {
 	}
 }
 
+func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
+	data := map[string]interface{}{
+		"monsterId": m.ID,
+		"x":         m.Pos.X,
+		"y":         m.Pos.Y,
+	}
+	jsonData, _ := json.Marshal(data)
+	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+}
+
 func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
 	for _, player := range GetPlayersInZone(zoneID) {
@@ -81,41 +94,73 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 	// fmt.Printf("Broadcasting to %d players in zone %d\n", len(GetPlayersInZone(zoneID)), zoneID)
 }
 
-func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
-	data := map[string]interface{}{
-		"monsterId": m.ID,
-		"x":         m.Pos.X,
-		"y":         m.Pos.Y,
+func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
+	type MoveData struct {
+		MonsterID int `json:"monsterId"`
+		X         int `json:"x"`
+		Y         int `json:"y"`
+		Index     int `json:"index"` // ✅ ใส่ไว้เพื่อใช้ render sprite หรือ AI ฝั่ง client
 	}
-	jsonData, _ := json.Marshal(data)
-	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+
+	var moves []MoveData
+	for _, m := range monsters {
+		moves = append(moves, MoveData{
+			MonsterID: m.ID,
+			X:         m.Pos.X,
+			Y:         m.Pos.Y,
+			Index:     m.Index,
+		})
+	}
+
+	jsonData, err := json.Marshal(moves)
+	if err != nil {
+		log.Printf("❌ JSON marshal error: %v", err)
+		return
+	}
+
+	for _, p := range GetPlayersInZone(zoneID) {
+		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+	}
+
+	// log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)
 }
 
-// func SendMonsterPositionsToPlayer(player *Player, monsters []*models.Monster) {
-// 	var list []map[string]interface{}
-// 	for _, m := range monsters {
-// 		list = append(list, map[string]interface{}{
-// 			"id": m.ID,
-// 			"x":  m.Pos.X,
-// 			"y":  m.Pos.Y,
-// 		})
-// 	}
-// 	data, _ := json.Marshal(list)
+func BuildMonsterGroupMovePacket(monsters []*models.Monster) []byte {
+	buf := new(bytes.Buffer)
 
-// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, data)
-// }
+	// Packet header (ตามโปรโตคอลคุณ - สมมุติ PacketType = 0xC2 0xF3 0x01)
+	buf.WriteByte(0xC2)
+	buf.Write([]byte{0x00, 0x00}) // Placeholder for size, จะใส่ทีหลัง
+	buf.WriteByte(0xF3)
+	buf.WriteByte(0x01) // Subcode for "group monster move"
 
-// func SendMonsterCreate(player *services.Player, m *models.Monster, template *models.MonsterTemplate) {
-// 	data, _ := json.Marshal(map[string]interface{}{
-// 		"monsterId":   m.ID,
-// 		"type":        m.Index,
-// 		"x":           m.Pos.X,
-// 		"y":           m.Pos.Y,
-// 		"level":       template.Level,
-// 		"name":        template.Name,
-// 		"maxLife":     template.MaxLife,
-// 		"currentLife": template.MaxLife,
-// 	})
+	// จำนวน Monster
+	buf.WriteByte(byte(len(monsters)))
 
-// 	player.SendWithCode(message.SERVER_MESSAGE_MONSTER_CREATE, data)
-// }
+	for _, m := range monsters {
+		buf.Write(EncodeMonsterMoveEntry(m))
+	}
+
+	// แทรกความยาว packet ที่ตำแหน่ง [1:3]
+	packet := buf.Bytes()
+	packetLen := len(packet)
+	packet[1] = byte(packetLen >> 8)
+	packet[2] = byte(packetLen & 0xFF)
+
+	return packet
+}
+
+func EncodeMonsterMoveEntry(m *models.Monster) []byte {
+	buf := new(bytes.Buffer)
+	buf.WriteByte(byte(m.ID))    // Monster ID
+	buf.WriteByte(byte(m.Pos.X)) // Pos X
+	buf.WriteByte(byte(m.Pos.Y)) // Pos Y
+	buf.WriteByte(byte(m.Index)) // Monster type index (template)
+	return buf.Bytes()
+}
+
+func SendToPlayersInZone(zoneID int, packet []byte) {
+	for _, player := range GetPlayersInZone(zoneID) {
+		player.SendPacket(packet)
+	}
+}

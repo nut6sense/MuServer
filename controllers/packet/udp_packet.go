@@ -1,11 +1,14 @@
 package packet
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
 	"maxion-zone4/config"
+	"maxion-zone4/controllers/shared"
 	user_controller "maxion-zone4/controllers/user"
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
@@ -13,7 +16,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	skill "maxion-zone4/controllers/skill"
@@ -23,31 +25,34 @@ var udpPacketHandlers = map[int]func(string){
 	message.USER_MESSAGE_1000:                 user_controller.LoginUserUDP,
 	message.USER_MESSAGE_DISCONNECT_GO_SERVER: user_controller.DisconnectUser,
 	message.USER_MESSAGE_GET_USE_SKILL:        skill.CharacterUseSkill,
-	message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
-	message.USER_MESSAGE_GET_USER_MOVE:        user_controller.MoveUserUDP,
-	message.USER_MESSAGE_GET_USER_ATTACK:      user_controller.AttackUserUDP,
-	message.USER_MESSAGE_REGISTER_USER:        user_controller.LoginUserUDP,
-	message.USER_MESSAGE_LOGOUT_USER:          user_controller.LogoutUserUDP,
-	message.SERVER_MESSAGE_MONSTER_MOVE:       user_controller.MoveMonsterUDP,
+	//message.USER_MESSAGE_SET_USE_SKILL_RETURN: skill.CharacterUseSkill,
+	message.USER_MESSAGE_GET_USER_MOVE:          user_controller.MoveUserUDP,
+	message.USER_MESSAGE_GET_USER_ATTACK:        user_controller.AttackUserUDP,
+	message.USER_MESSAGE_GET_USER_ROTATE:        user_controller.RotateUserUDP,
+	message.USER_MESSAGE_REGISTER_USER:          user_controller.LoginUserUDP,
+	message.USER_MESSAGE_LOGOUT_USER:            user_controller.LogoutUserUDP,
+	message.SERVER_MESSAGE_MONSTER_MOVE:         user_controller.MoveMonsterUDP,
+	message.SERVER_MESSAGE_MONSTER_DEATH:        services.MonsterDeath,
+	message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM: services.PlayEquippedItem,
 }
 
-type UDPClient struct {
-	Addr          *net.UDPAddr
-	NetworkID     string
-	Position      Coordinates
-	ClassID       int    // เพิ่ม ClassID เข้าไป
-	Username      string // ชื่อบัญชีผู้เล่น
-	CharacterName string // ชื่อตัวละครในเกม
-	MapNumber     int    // หมายเลขของแผนที่
-}
+// type UDPClient struct {
+// 	Addr          *net.UDPAddr
+// 	NetworkID     string
+// 	Position      Coordinates
+// 	ClassID       int    // เพิ่ม ClassID เข้าไป
+// 	Username      string // ชื่อบัญชีผู้เล่น
+// 	CharacterName string // ชื่อตัวละครในเกม
+// 	MapNumber     int    // หมายเลขของแผนที่
+// }
 
-type Coordinates struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
+// type Coordinates struct {
+// 	X int `json:"x"`
+// 	Y int `json:"y"`
+// }
 
-var UDPClients = make(map[string]UDPClient) // key ยังคงเป็น addr.String() (หรือจะเปลี่ยนเป็น networkID ก็ได้)
-var UDPClientsMutex = sync.RWMutex{}
+// var UDPClients = make(map[string]UDPClient) // key ยังคงเป็น addr.String() (หรือจะเปลี่ยนเป็น networkID ก็ได้)
+// var UDPClientsMutex = sync.RWMutex{}
 
 func ProcessUDP(packet string, addr *net.UDPAddr) {
 
@@ -103,13 +108,59 @@ func ProcessUDP(packet string, addr *net.UDPAddr) {
 		resHeader = message.USER_MESSAGE_SET_USER_MOVE_RETURN
 	} else if header == message.USER_MESSAGE_GET_USER_ATTACK {
 		resHeader = message.USER_MESSAGE_SET_USER_ATTACK_RETURN
+	} else if header == message.USER_MESSAGE_GET_USER_ROTATE {
+		resHeader = message.USER_MESSAGE_SET_USER_ROTATE_RETURN
 	} else if header == message.USER_MESSAGE_REGISTER_USER {
 		resHeader = message.USER_MESSAGE_REGISTER_USER_RETURN
 	} else if header == message.USER_MESSAGE_LOGOUT_USER {
 		resHeader = message.USER_MESSAGE_LOGOUT_USER_RETURN
+	} else if header == message.USER_MESSAGE_GET_USE_SKILL {
+		resHeader = message.USER_MESSAGE_SET_USE_SKILL_RETURN
 	}
 
 	BroadcastUDP(resHeader, body, addr)
+}
+
+func ProcessUDPByte(packet []byte, addr *net.UDPAddr) {
+
+	if len(packet) < 4 {
+		log.Println("❌ Packet too short to contain header")
+		return
+	}
+
+	// ✅ 1. แกะ header (4 ไบต์แรก)
+	var header int32
+	headerBuf := bytes.NewReader(packet[:4])
+	if err := binary.Read(headerBuf, binary.LittleEndian, &header); err != nil {
+		log.Println("❌ Failed to parse header from packet:", err)
+		return
+	}
+
+	// ✅ 2. แยก body (ส่วนที่เหลือหลัง 4 ไบต์)
+	body := packet[4:]
+
+	log.Printf("📩 Received packet from %s: Header = %d, BodyLength = %d bytes", addr.String(), header, len(body))
+
+	// 🔁 ส่งไปให้ฟังก์ชันที่รองรับ header นี้
+	switch int(header) {
+	case message.USER_MESSAGE_GET_USER_MOVE:
+		user_controller.MoveUserUDPTestPack(body)
+		break
+	case message.USER_MESSAGE_GET_USER_ATTACK:
+		user_controller.AttackUserUDPTestPack(body)
+		break
+	case message.USER_MESSAGE_GET_USER_ROTATE:
+		user_controller.RotateUserUDPTestPack(body)
+		break
+	case message.SERVER_MESSAGE_PLAYER_EQUIPPED_ITEM:
+		services.PlayEquippedItemTestBytes(body)
+	// เพิ่ม case อื่น ๆ ได้ตามต้องการ
+	default:
+		log.Printf("⚠️ Unknown header: %d", header)
+		break
+	}
+
+	//user_controller.MoveUserUDPTestPack(packet)
 }
 
 func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
@@ -120,10 +171,10 @@ func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
 		return
 	}
 
-	UDPClientsMutex.RLock()
-	defer UDPClientsMutex.RUnlock()
+	shared.UDPClientsMutex.RLock()
+	defer shared.UDPClientsMutex.RUnlock()
 
-	for _, client := range UDPClients {
+	for _, client := range shared.UDPClients {
 		// ข้าม client ตัวเอง (ผู้ส่ง)
 		if excludeAddr != nil && client.Addr.String() == excludeAddr.String() {
 			continue
@@ -139,10 +190,10 @@ func BroadcastUDP(header int, body string, excludeAddr *net.UDPAddr) {
 }
 
 func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
-	UDPClientsMutex.RLock()
-	defer UDPClientsMutex.RUnlock()
+	shared.UDPClientsMutex.RLock()
+	defer shared.UDPClientsMutex.RUnlock()
 
-	for _, client := range UDPClients {
+	for _, client := range shared.UDPClients {
 		if client.Addr.String() == newClientAddr.String() {
 			continue
 		}
@@ -188,8 +239,8 @@ func SendExistingPlayersToNewClient(newClientAddr *net.UDPAddr) {
 func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	clientKey := addr.String()
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
 	var data models.RegisterUserDTO
 	err := json.Unmarshal([]byte(body), &data)
@@ -199,7 +250,7 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	}
 
 	// Check if the client is already registered with the same networkID
-	if existingClient, exists := UDPClients[clientKey]; exists {
+	if existingClient, exists := shared.UDPClients[clientKey]; exists {
 		if existingClient.NetworkID == data.ID {
 			log.Println("UDP Client already registered:", data.ID, "@", clientKey)
 			return
@@ -207,10 +258,10 @@ func RegisterUDPClient(addr *net.UDPAddr, body string) {
 	}
 
 	// ✅ เพิ่มตำแหน่งที่ส่งมาใน UDPClient
-	UDPClients[clientKey] = UDPClient{
+	shared.UDPClients[clientKey] = &shared.UDPClient{
 		Addr:      addr,
 		NetworkID: data.ID,
-		Position: Coordinates{
+		Position: shared.Coordinates{
 			X: data.Coord.X,
 			Y: data.Coord.Y,
 		},
@@ -229,14 +280,16 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 	clientKey := addr.String()
 	x := moveData.Position.X
 	y := moveData.Position.Y
+	zoneID := moveData.MapNumber
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
-	if client, exists := UDPClients[clientKey]; exists {
+	if client, exists := shared.UDPClients[clientKey]; exists {
 		client.Position.X = x
 		client.Position.Y = y
-		UDPClients[clientKey] = client
+		client.MapNumber = zoneID
+		shared.UDPClients[clientKey] = client
 
 		rdb := services.RedisClient
 
@@ -256,6 +309,16 @@ func UpdateUDPClientPosition(addr *net.UDPAddr, moveData models.MoveDataDTO) {
 			log.Printf("❌ JSON marshal error: %v", err)
 			return
 		}
+
+		_, ok := services.PlayerManager.Players[client.Username]
+		if !ok {
+			log.Printf("⚠️ Player %s no longer exists in PlayerManager", client.Username)
+			return
+		}
+
+		playerInfo := services.PlayerManager.Players[client.Username]
+		services.PlayerManager.Players[client.Username].CurrentLife = int(playerInfo.MaxLife)
+		services.PlayerManager.Players[client.Username].Pos = models.Vec2{X: x, Y: y}
 
 		// บันทึกลง Redis (เก็บแบบ list โดยใช้ LPUSH)
 		redisKey := fmt.Sprintf("character:move:%s", move.CharacterName)
@@ -279,14 +342,14 @@ func RemoveUDPClient(body string) {
 		return
 	}
 
-	UDPClientsMutex.Lock()
-	defer UDPClientsMutex.Unlock()
+	shared.UDPClientsMutex.Lock()
+	defer shared.UDPClientsMutex.Unlock()
 
 	// ✅ Loop ผ่าน UDPClients ทั้งหมดเพื่อตรวจสอบ ID
-	for key, client := range UDPClients {
+	for key, client := range shared.UDPClients {
 		if client.NetworkID == data.ID {
 			// ถ้าเจอให้ลบออกจาก Map
-			delete(UDPClients, key)
+			delete(shared.UDPClients, key)
 			log.Printf("✅ Removed UDPClient with ID: %s (Key: %s)", data.ID, key)
 			return
 		}

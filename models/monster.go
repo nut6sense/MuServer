@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -20,21 +21,54 @@ type Vec2 struct {
 }
 
 type Monster struct {
-	ID         int
-	Index      int
-	Pos        Vec2
-	Target     Vec2
-	Path       []Vec2
-	SpawnPos   Vec2
-	Alive      bool
-	WalkRemain int // จำนวนก้าวที่ยังเหลือ
-	SpawnArea  MonsterSpawnEntry
+	ID             int               // ID ของมอนสเตอร์ (ไม่ซ้ำ)
+	Index          int               // อ้างอิง MonsterTemplate
+	Pos            Vec2              // ตำแหน่งปัจจุบัน
+	Target         Vec2              // ตำแหน่งเป้าหมาย
+	Path           []Vec2            // เส้นทางที่ต้องเดิน
+	SpawnPos       Vec2              // ตำแหน่งเกิด
+	Alive          bool              // ยังมีชีวิตอยู่หรือไม่
+	WalkRemain     int               // จำนวนก้าวที่เหลือ (ถ้าใช้)
+	SpawnArea      MonsterSpawnEntry // พื้นที่ spawn
+	LastMoveTime   time.Time         // เวลาเดินล่าสุด
+	MoveDelay      time.Duration     // ดีเลย์ระหว่างการเดิน
+	LastAttackTime time.Time         // เวลาโจมตีล่าสุด
+	DeathTime      time.Time         // เวลาที่ตาย
 }
 
-func (m *Monster) MoveStep() {
-	if len(m.Path) > 0 {
-		m.Pos = m.Path[0]
+type MonsterCreatePacket struct {
+	MonsterId          int    `json:"monsterId"` // รหัสมอนสเตอร์ runtime
+	Type               int    `json:"type"`      // Monster Index จาก Template
+	X                  byte   `json:"x"`
+	Y                  byte   `json:"y"`
+	TargetX            byte   `json:"targetX"`
+	TargetY            byte   `json:"targetY"`
+	Direction          byte   `json:"direction"` // 0-7
+	Level              int    `json:"level"`
+	MaxLife            int    `json:"maxLife"`
+	CurrentLife        int    `json:"currentLife"`
+	PentagramAttribute byte   `json:"pentagramMainAttribute"` // ธาตุ (0-4)
+	Name               string `json:"name"`
+	Alive              bool   `json:"alive"`
+}
+
+func (m *Monster) MoveStep(template *MonsterTemplate) {
+	maxSteps := template.MoveRange
+
+	stepsTaken := 0
+	for len(m.Path) > 0 && stepsTaken < maxSteps {
+		next := m.Path[0]
+		m.Pos = next
 		m.Path = m.Path[1:]
+		stepsTaken++
+
+		// log.Printf("👣 Monster %d moved to (%d,%d)", m.ID, m.Pos.X, m.Pos.Y)
+	}
+
+	// ✅ ล้าง path หากเดินหมด
+	if len(m.Path) == 0 {
+		m.Path = nil
+		m.Target = Vec2{}
 	}
 }
 
@@ -277,49 +311,55 @@ func LoadTileMapFromRedis(rdb *redis.Client, ctx context.Context, zone int) ([][
 	tileMap := make([][]Tile, 256)
 	for y := 0; y < 256; y++ {
 		tileMap[y] = make([]Tile, 256)
+	}
+
+	// 1. เตรียม pipeline
+	pipe := rdb.Pipeline()
+	cmds := make([]*redis.StringStringMapCmd, 0, 256*256)
+
+	// 2. สร้างคำสั่งทั้งหมดใส่ pipeline
+	for y := 0; y < 256; y++ {
 		for x := 0; x < 256; x++ {
 			key := fmt.Sprintf("map:%d:tile:%d_%d", zone, x, y)
-			values, err := rdb.HGetAll(ctx, key).Result()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get tile %d,%d: %w", x, y, err)
-			}
-
-			tileType := Unknown
-			if t, ok := values["type"]; ok {
-				if typeInt, err := strconv.Atoi(t); err == nil {
-					tileType = TileType(typeInt)
-				}
-			}
-
-			walkable := false
-			if w, ok := values["walkable"]; ok && w == "1" {
-				walkable = true
-			}
-
-			tileMap[y][x] = Tile{
-				X:        x,
-				Y:        y,
-				Type:     tileType,
-				Walkable: walkable,
-			}
+			cmd := pipe.HGetAll(ctx, key)
+			cmds = append(cmds, cmd)
 		}
 	}
-	return tileMap, nil
-}
 
-type MonsterCreatePacket struct {
-	MonsterId          int    `json:"monsterId"` // รหัสมอนสเตอร์ runtime
-	Type               int    `json:"type"`      // Monster Index จาก Template
-	X                  byte   `json:"x"`
-	Y                  byte   `json:"y"`
-	TargetX            byte   `json:"targetX"`
-	TargetY            byte   `json:"targetY"`
-	Direction          byte   `json:"direction"` // 0-7
-	Level              int    `json:"level"`
-	MaxLife            int    `json:"maxLife"`
-	CurrentLife        int    `json:"currentLife"`
-	PentagramAttribute byte   `json:"pentagramMainAttribute"` // ธาตุ (0-4)
-	Name               string `json:"name"`
+	// 3. รันทั้งหมดในชุดเดียว
+	_, err := pipe.Exec(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("redis pipeline exec failed: %w", err)
+	}
+
+	// 4. สร้าง tileMap จากผลลัพธ์
+	for i := 0; i < len(cmds); i++ {
+		x := i % 256
+		y := i / 256
+
+		values := cmds[i].Val()
+
+		tileType := Unknown
+		if t, ok := values["type"]; ok {
+			if typeInt, err := strconv.Atoi(t); err == nil {
+				tileType = TileType(typeInt)
+			}
+		}
+
+		walkable := false
+		if w, ok := values["walkable"]; ok && w == "1" {
+			walkable = true
+		}
+
+		tileMap[y][x] = Tile{
+			X:        x,
+			Y:        y,
+			Type:     tileType,
+			Walkable: walkable,
+		}
+	}
+
+	return tileMap, nil
 }
 
 var nextMonsterID int = 10000
@@ -330,12 +370,16 @@ func generateUniqueMonsterID() int {
 	return nextMonsterID
 }
 
-func NewMonster(pos Vec2, target Vec2) *Monster {
+func NewMonster(index int, pos Vec2, target Vec2) *Monster {
 	return &Monster{
-		ID:     generateUniqueMonsterID(),
-		Pos:    pos,
-		Target: target,
-		Alive:  true,
-		Path:   []Vec2{},
+		ID:           generateUniqueMonsterID(),
+		Index:        index,
+		Pos:          pos,
+		Target:       target,
+		SpawnPos:     pos, // ✅ สำคัญมาก
+		Alive:        true,
+		Path:         []Vec2{},
+		MoveDelay:    time.Duration(rand.Intn(400)+400) * time.Millisecond, // ✅ 400–800ms
+		LastMoveTime: time.Now(),                                           // ✅ ให้เดินรอบแรกได้ทันที
 	}
 }

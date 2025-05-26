@@ -21,6 +21,7 @@ type MoveDataDTO struct {
 	Position Vec2       `json:"position"`
 	Coords   []CoordDTO `json:"coords"`
 	//TargetID string     `json:"targetId"`
+	MapNumber int `json:"mapNumber"`
 }
 
 type CoordDTO struct {

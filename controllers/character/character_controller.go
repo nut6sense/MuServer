@@ -12,6 +12,7 @@ import (
 	"maxion-zone4/services"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -911,6 +912,18 @@ func CreateCharacter(body string, username string) {
 	charName := parts[2]
 	class := parts[3]
 
+	matched, err := regexp.MatchString(`^[a-zA-Z0-9_ ]+$`, charName)
+	if err != nil {
+		log.Println("Regex error:", err)
+		return
+	}
+
+	if !matched {
+		log.Println("❌ Invalid character name:", charName)
+		services.SendTCPUser(message.USER_MESSAGE_CREATE_CHARACTER_ERROR, "Invalid character name: only A-Z, a-z, 0-9, space, and underscore (_) allowed", username)
+		return
+	}
+
 	fmt.Println("CreateCharacter AccountId: ", accountId)
 	fmt.Println("CreateCharacter ServerCode: ", svCode)
 	fmt.Println("CreateCharacter CharName: ", charName)
@@ -951,4 +964,17 @@ func CreateCharacter(body string, username string) {
 
 	fmt.Println("CreateCharacter Return: ", msg)
 	services.SendTCPUser(event, msg, username)
+}
+
+func LoadMonsterCreate(body string, username string) {
+	parts := strings.Split(body, ",")
+	accountID := parts[0]
+	zoneID, _ := strconv.Atoi(parts[1])
+
+	services.PlayerManager.Players[accountID].ZoneID = zoneID
+
+	// ส่งมอนสเตอร์ทั้งหมดใน zone ไปยัง client หลังเลือกตัวละครสำเร็จ
+	services.SendAllMonstersToPlayer(zoneID, func(dataResponse []byte) {
+		services.SendTCPUser(message.SERVER_MESSAGE_MONSTER_CREATE, string(dataResponse), accountID)
+	})
 }

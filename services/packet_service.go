@@ -1,6 +1,9 @@
 package services
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"log"
 	"maxion-zone4/config"
@@ -161,5 +164,61 @@ func SendUDP(header int, body string) error {
 	}
 
 	// log.Println("config.Addr:", config.Addr)
+	return nil
+}
+
+func SendUDPByte(header int, body []byte) error {
+
+	// ✅ 1. เตรียม buffer ใหม่เพื่อใส่ header (4 bytes) + body
+	var packet bytes.Buffer
+
+	// ✅ 2. เขียน header แบบ int32 little-endian
+	err := binary.Write(&packet, binary.LittleEndian, int32(header))
+	if err != nil {
+		log.Fatal("❌ Failed to write header:", err)
+		return err
+	}
+
+	// ✅ 3. ตามด้วย body
+	packet.Write(body)
+
+	// ✅ 4. เข้ารหัส packet ทั้งหมด
+	encrypted, err := models.EncryptBytes(packet.Bytes())
+	if err != nil {
+		log.Fatal("❌ Error encrypting message:", err)
+		return err
+	}
+
+	// ✅ 5. ส่งผ่าน UDP
+	_, err = config.ConnUDP.WriteToUDP(encrypted, config.Addr)
+	if err != nil {
+		log.Println("❌ Error sending UDP data:", err)
+		return err
+	}
+
+	return nil
+}
+
+func SendUDPToPlayer(header int, body string, player *Player) error {
+	if player == nil || player.Send == nil {
+		return fmt.Errorf("invalid player or connection")
+	}
+
+	packet := map[string]interface{}{
+		"code": header,
+		"body": body,
+	}
+	data, err := json.Marshal(packet)
+	if err != nil {
+		return fmt.Errorf("failed to marshal packet: %v", err)
+	}
+
+	player.Send(data) // ใช้ฟังก์ชันส่งของ player แต่ละคน
+	return nil
+}
+
+func SendUDPToPlayerBytes(header int, body []byte, player *Player) error {
+
+	player.Send(body) // ใช้ฟังก์ชันส่งของ player แต่ละคน
 	return nil
 }

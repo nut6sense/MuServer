@@ -24,6 +24,7 @@ var packetHandlerSingle = map[int]func(body string, username string){
 	message.USER_MESSAGE_LOAD_DEFAULT_CLASS:   character_controller.LoadDefaultClassType,
 	message.USER_MESSAGE_CREATE_CHARACTER:     character_controller.CreateCharacter,
 	message.USER_MESSAGE_SERVER_LOGOUT_USER:   user_controller.RemoveOnlineUser,
+	message.SERVER_MESSAGE_LOAD_MONSTER:       character_controller.LoadMonsterCreate,
 }
 
 var packetHandlers = map[int]func(body string, character *models.CharacterInfo){

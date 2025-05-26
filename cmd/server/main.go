@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// โหลด TileMap จาก Redis
-	// services.LoadTileMapsFromRedis()
+	services.LoadTileMapsFromRedis()
 
 	if err := services.LoadAllMonsterTemplates(); err != nil {
 		log.Fatal("Failed to load monster templates:", err)
@@ -55,13 +55,22 @@ func main() {
 	services.SpawnMonstersFromSpawnData(spawnData)
 
 	services.PrintMonsterSummary()
-	services.ListMonstersInZone(0)
+	for i := 0; i < 4; i++ {
+		services.ListMonstersInZone(i)
+	}
 	services.StartMonsterAI()
 	services.StartCharacterPositionSyncLoop()
 
 	fmt.Println("Servers are running...")
 
-	// go character.CharacterSelect("Admin,0,Mankjon", "Admin")
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for range ticker.C {
+			for i := 0; i < 4; i++ {
+				services.PlayerInZoneChecked(i)
+			}
+		}
+	}()
 
 	select {}
 }
