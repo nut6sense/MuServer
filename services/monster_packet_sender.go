@@ -113,13 +113,6 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 }
 
 func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
-	// type MoveData struct {
-	// 	MonsterID int           `json:"monsterId"`
-	// 	X         int           `json:"x"`
-	// 	Y         int           `json:"y"`
-	// 	Index     int           `json:"index"`          // สำหรับ render sprite หรือ AI
-	// 	Path      []models.Vec2 `json:"path,omitempty"` // เส้นทางที่ต้องเดิน
-	// }
 
 	type MoveData struct {
 		MonsterID int           `msgpack:"0"`
@@ -129,49 +122,23 @@ func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
 		Path      []models.Vec2 `msgpack:"4"`
 	}
 
-	// var moves []MoveData
-	// for _, m := range monsters {
-	// 	moves = append(moves, MoveData{
-	// 		MonsterID: m.ID,
-	// 		X:         m.Pos.X,
-	// 		Y:         m.Pos.Y,
-	// 		Index:     m.Index,
-	// 		//Path:      m.Path, // ✅ เพิ่ม path เข้าไปตรงนี้
-	// 	})
-	// }
-
-	move := MoveData{
-		MonsterID: monsters[0].ID,
-		X:         monsters[0].Pos.X,
-		Y:         monsters[0].Pos.Y,
-		Index:     monsters[0].Index,
-		Path:      monsters[0].Path, // หรือ nil ถ้ายังไม่ส่ง path
+	var moves []MoveData
+	for _, m := range monsters {
+		moves = append(moves, MoveData{
+			MonsterID: m.ID,
+			X:         m.Pos.X,
+			Y:         m.Pos.Y,
+			Index:     m.Index,
+			//Path:      m.Path, // ✅ เพิ่ม path เข้าไปตรงนี้
+		})
 	}
 
-	// ✅ แปลงเป็น MessagePack
-	//msgpackData, err := msgpack.Marshal(move)
-	msgpackData, err := msgpack.MarshalAsArray(move)
+	// ✅ เปลี่ยนเป็น MessagePack
+	msgpackData, err := msgpack.Marshal(moves)
 	if err != nil {
 		log.Printf("❌ MessagePack marshal error: %v", err)
 		return
 	}
-
-	// jsonData, err := json.Marshal(moves)
-	// if err != nil {
-	// 	log.Printf("❌ JSON marshal error: %v", err)
-	// 	return
-	// }
-
-	// for _, p := range GetPlayersInZone(zoneID) {
-	// 	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
-	// }
-
-	// ✅ เปลี่ยนเป็น MessagePack
-	// msgpackData, err := msgpack.Marshal(moves)
-	// if err != nil {
-	// 	log.Printf("❌ MessagePack marshal error: %v", err)
-	// 	return
-	// }
 
 	for _, p := range GetPlayersInZone(zoneID) {
 		p.SendWithCodeBytes(message.SERVER_MESSAGE_MONSTER_MOVE, msgpackData)
