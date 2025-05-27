@@ -16,24 +16,24 @@ import (
 )
 
 type Vec2 struct {
-	X int
-	Y int
+	X int `msgpack:"0"`
+	Y int `msgpack:"1"`
 }
 
 type Monster struct {
-	ID             int               // ID ของมอนสเตอร์ (ไม่ซ้ำ)
-	Index          int               // อ้างอิง MonsterTemplate
-	Pos            Vec2              // ตำแหน่งปัจจุบัน
-	Target         Vec2              // ตำแหน่งเป้าหมาย
-	Path           []Vec2            // เส้นทางที่ต้องเดิน
-	SpawnPos       Vec2              // ตำแหน่งเกิด
-	Alive          bool              // ยังมีชีวิตอยู่หรือไม่
-	WalkRemain     int               // จำนวนก้าวที่เหลือ (ถ้าใช้)
-	SpawnArea      MonsterSpawnEntry // พื้นที่ spawn
-	LastMoveTime   time.Time         // เวลาเดินล่าสุด
-	MoveDelay      time.Duration     // ดีเลย์ระหว่างการเดิน
-	LastAttackTime time.Time         // เวลาโจมตีล่าสุด
-	DeathTime      time.Time         // เวลาที่ตาย
+	ID             int               `msgpack:"0"`  // ID ของมอนสเตอร์ (ไม่ซ้ำ)
+	Index          int               `msgpack:"1"`  // อ้างอิง MonsterTemplate
+	Pos            Vec2              `msgpack:"2"`  // ตำแหน่งปัจจุบัน
+	Target         Vec2              `msgpack:"3"`  // ตำแหน่งเป้าหมาย
+	Path           []Vec2            `msgpack:"4"`  // เส้นทางที่ต้องเดิน
+	SpawnPos       Vec2              `msgpack:"5"`  // ตำแหน่งเกิด
+	Alive          bool              `msgpack:"6"`  // ยังมีชีวิตอยู่หรือไม่
+	WalkRemain     int               `msgpack:"7"`  // จำนวนก้าวที่เหลือ (ถ้าใช้)
+	SpawnArea      MonsterSpawnEntry `msgpack:"8"`  // พื้นที่ spawn
+	LastMoveTime   time.Time         `msgpack:"9"`  // เวลาเดินล่าสุด
+	MoveDelay      time.Duration     `msgpack:"10"` // ดีเลย์ระหว่างการเดิน
+	LastAttackTime time.Time         `msgpack:"11"` // เวลาโจมตีล่าสุด
+	DeathTime      time.Time         `msgpack:"12"` // เวลาที่ตาย
 }
 
 type MonsterCreatePacket struct {

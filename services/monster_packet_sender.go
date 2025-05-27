@@ -8,6 +8,8 @@ import (
 	"maxion-zone4/models"
 	"maxion-zone4/models/message"
 	"sync"
+
+	"github.com/shamaton/msgpack/v2"
 )
 
 func BroadcastMonsterToZone(zoneID int, m *models.Monster, template *models.MonsterTemplate) {
@@ -81,10 +83,26 @@ func SendMonsterMoveToPlayer(p *Player, m *models.Monster) {
 	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
 }
 
+func SendMonsterMoveToPlayerBytes(p *Player, m *models.Monster) {
+	// ✅ Serialize *models.Monster ด้วย MessagePack
+	data, err := msgpack.Marshal(m)
+	if err != nil {
+		log.Printf("❌ Failed to marshal monster: %v", err)
+		return
+	}
+
+	// ✅ ส่งไปที่ Player ด้วย code และ binary message
+	p.SendWithCodeBytes(message.SERVER_MESSAGE_MONSTER_MOVE, data)
+}
+
 func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 
+	// for _, player := range GetPlayersInZone(zoneID) {
+	// 	SendMonsterMoveToPlayer(player, m)
+	// }
+
 	for _, player := range GetPlayersInZone(zoneID) {
-		SendMonsterMoveToPlayer(player, m)
+		SendMonsterMoveToPlayerBytes(player, m)
 	}
 
 	// if len(GetPlayersInZone(zoneID)) == 0 {
@@ -95,31 +113,68 @@ func BroadcastMonsterMoveToZone(zoneID int, m *models.Monster) {
 }
 
 func BroadcastMonsterGroupMoveToZone(zoneID int, monsters []*models.Monster) {
+	// type MoveData struct {
+	// 	MonsterID int           `json:"monsterId"`
+	// 	X         int           `json:"x"`
+	// 	Y         int           `json:"y"`
+	// 	Index     int           `json:"index"`          // สำหรับ render sprite หรือ AI
+	// 	Path      []models.Vec2 `json:"path,omitempty"` // เส้นทางที่ต้องเดิน
+	// }
+
 	type MoveData struct {
-		MonsterID int `json:"monsterId"`
-		X         int `json:"x"`
-		Y         int `json:"y"`
-		Index     int `json:"index"` // ✅ ใส่ไว้เพื่อใช้ render sprite หรือ AI ฝั่ง client
+		MonsterID int           `msgpack:"0"`
+		X         int           `msgpack:"1"`
+		Y         int           `msgpack:"2"`
+		Index     int           `msgpack:"3"`
+		Path      []models.Vec2 `msgpack:"4"`
 	}
 
-	var moves []MoveData
-	for _, m := range monsters {
-		moves = append(moves, MoveData{
-			MonsterID: m.ID,
-			X:         m.Pos.X,
-			Y:         m.Pos.Y,
-			Index:     m.Index,
-		})
+	// var moves []MoveData
+	// for _, m := range monsters {
+	// 	moves = append(moves, MoveData{
+	// 		MonsterID: m.ID,
+	// 		X:         m.Pos.X,
+	// 		Y:         m.Pos.Y,
+	// 		Index:     m.Index,
+	// 		//Path:      m.Path, // ✅ เพิ่ม path เข้าไปตรงนี้
+	// 	})
+	// }
+
+	move := MoveData{
+		MonsterID: monsters[0].ID,
+		X:         monsters[0].Pos.X,
+		Y:         monsters[0].Pos.Y,
+		Index:     monsters[0].Index,
+		Path:      monsters[0].Path, // หรือ nil ถ้ายังไม่ส่ง path
 	}
 
-	jsonData, err := json.Marshal(moves)
+	// ✅ แปลงเป็น MessagePack
+	//msgpackData, err := msgpack.Marshal(move)
+	msgpackData, err := msgpack.MarshalAsArray(move)
 	if err != nil {
-		log.Printf("❌ JSON marshal error: %v", err)
+		log.Printf("❌ MessagePack marshal error: %v", err)
 		return
 	}
 
+	// jsonData, err := json.Marshal(moves)
+	// if err != nil {
+	// 	log.Printf("❌ JSON marshal error: %v", err)
+	// 	return
+	// }
+
+	// for _, p := range GetPlayersInZone(zoneID) {
+	// 	p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+	// }
+
+	// ✅ เปลี่ยนเป็น MessagePack
+	// msgpackData, err := msgpack.Marshal(moves)
+	// if err != nil {
+	// 	log.Printf("❌ MessagePack marshal error: %v", err)
+	// 	return
+	// }
+
 	for _, p := range GetPlayersInZone(zoneID) {
-		p.SendWithCode(message.SERVER_MESSAGE_MONSTER_MOVE, jsonData)
+		p.SendWithCodeBytes(message.SERVER_MESSAGE_MONSTER_MOVE, msgpackData)
 	}
 
 	// log.Printf("📦 Broadcast %d monster(s) to zone %d", len(monsters), zoneID)

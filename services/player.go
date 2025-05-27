@@ -1,6 +1,8 @@
 package services
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -64,6 +66,24 @@ func (p *Player) SendWithCode(code int, payload []byte) {
 	SafeSend(p, data)
 }
 
+func (p *Player) SendWithCodeBytes(code int, payload []byte) {
+	// 🔹 เตรียม buffer สำหรับ header + payload
+	var buf bytes.Buffer
+
+	// 🔹 เขียน header 4 ไบต์แรก (LittleEndian)
+	err := binary.Write(&buf, binary.LittleEndian, int32(code))
+	if err != nil {
+		fmt.Println("❌ Failed to write header:", err)
+		return
+	}
+
+	// 🔹 ต่อ payload
+	buf.Write(payload)
+
+	// 🔹 ส่งให้ client
+	SafeSend(p, buf.Bytes())
+}
+
 type Sendable interface {
 	SendPacket([]byte)
 }
@@ -102,23 +122,29 @@ func PlayerRegis(username string, characterName string, zoneID int, data databas
 		MaxLife:     int(data.MaxLife),
 		UDPAddr:     shared.GetUDPAddrByUsername(username),
 		Send: func(data []byte) {
-			var packet map[string]interface{}
-			err := json.Unmarshal(data, &packet)
-			if err != nil {
-				fmt.Printf("❌ Failed to parse send packet for %s: %v\n", username, err)
-				return
-			}
-			codeFloat, ok := packet["code"].(float64)
-			if !ok {
-				fmt.Printf("❌ Invalid or missing 'code' field in packet for %s\n", username)
-				return
-			}
-			code := int(codeFloat)
+			//var packet map[string]interface{}
+			// err := json.Unmarshal(data, &packet)
+			// if err != nil {
+			// 	fmt.Printf("❌ Failed to parse send packet for %s: %v\n", username, err)
+			// 	//return
+			// }
+			// codeFloat, ok := packet["code"].(float64)
+			// if !ok {
+			// 	fmt.Printf("❌ Invalid or missing 'code' field in packet for %s\n", username)
+			// 	//return
+			// }
+
+			// ✅ อ่าน header 4 byte แรก (int32 little-endian)
+			code := int(binary.LittleEndian.Uint32(data[:4]))
+			body := data[4:]
+
+			//code := int(codeFloat)
 			udpAddr := shared.GetUDPAddrByUsername(username)
 
 			// ✅ ใช้ addr ที่ได้จาก shared
 			if udpAddr != nil {
-				errSend := SendUDPToAddr(code, string(data), udpAddr)
+				errSend := SendUDPToAddrBytes(code, body, udpAddr)
+				//SendUDPToAddr(code, string(data), udpAddr)
 				if errSend != nil {
 					fmt.Printf("❌ Failed to send UDP to %s: %v\n", username, errSend)
 				}
@@ -226,5 +252,29 @@ func SendUDPToAddr(header int, body string, addr *net.UDPAddr) error {
 	}
 
 	_, err = config.ConnUDP.WriteToUDP([]byte(response), addr)
+	return err
+}
+
+func SendUDPToAddrBytes(header int, body []byte, addr *net.UDPAddr) error {
+	// 🔹 สร้าง buffer สำหรับ header + body
+	var buf bytes.Buffer
+
+	// 🔹 เขียน header เป็น int32 (LittleEndian)
+	err := binary.Write(&buf, binary.LittleEndian, int32(header))
+	if err != nil {
+		return err
+	}
+
+	// 🔹 เขียน payload ต่อท้าย
+	buf.Write(body)
+
+	// 🔐 เข้ารหัส packet
+	response, err := models.EncryptBytes(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	// 📤 ส่งผ่าน UDP
+	_, err = config.ConnUDP.WriteToUDP(response, addr)
 	return err
 }
